@@ -1,0 +1,8 @@
+metric_id	metric_name	category	sample_count	p50_latency_ms	p99_latency_ms	error_rate	is_healthy	status_summary
+M001	MarkdownRenderLatency	Rendering	15420	8.45	24.12	0.0001	true	"Markdig + KaTeX 引擎性能优异"
+M002	JsonTreeParseLatency	Parsing	8920	3.12	11.50	0.0000	true	"折叠语法树极速构建"
+M003	CsvGridSortLatency	Interactive	4210	5.60	18.20	0.0002	true	"1000 行二维表格平滑滚动"
+M004	SvgRasterizeLatency	Graphics	1200	14.80	45.30	0.0000	true	"支持 800% 滚轮无级缩放"
+M005	YamlValidationLatency	Validation	2300	4.20	13.80	0.0005	true	"js-yaml 结构化大纲树就绪"
+M006	MermaidGraphRender	Diagram	3100	18.50	52.60	0.0012	true	"时序图与流程图流式绘制"
+M007	HtmlSandboxLoadTime	Sandbox	1850	12.10	32.40	0.0000	true	"响应式多视口沙箱就绪"

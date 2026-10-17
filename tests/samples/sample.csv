@@ -1,0 +1,38 @@
+emp_id,full_name,department,role_title,joined_date,base_salary,bonus_rate,performance_score,is_active,emergency_notes
+00101,张晓伟,"Engineering, Core Platform","Principal ""System"" Engineer",2022-03-15,35000.00,0.25,98.50,true,"负责底层 Scintilla 桥接与 C# 互操作优化。
+主导研发双向撤销保护堆栈 (SCI_BEGINUNDOACTION)。"
+00102,Alice Smith,Product & UX Design,Senior UX Designer,2023-01-10,28500.50,0.18,94.20,true,统筹深浅色自适应界面与 Mac 风格圆点组件
+00103,李雅婷,"Quality Assurance, Tools",Staff QA Specialist,2022-08-01,22000.00,0.15,91.80,true,"编写自动化回归测试集与单元测试。
+包含跨格式边界覆盖率提升。"
+00104,Bob Jones,Infrastructure & DevOps,Cloud Reliability Engineer,2021-11-20,31200.00,0.20,88.40,false,当前处于带薪轮休假中
+00105,00007,Special Security Ops,"Lead ""Security"" Auditor",2020-05-12,42000.00,0.30,99.90,true,执行 PE 导出表注入与二进制代码签名合规审计
+00106,王建国,AI & Algorithm Labs,Senior NLP Scientist,2024-02-18,38000.75,0.22,96.00,true,探索代码高亮词法分析与智能分词技术
+00107,Charlie Wu,Developer Relations,Technical Evangelist,2023-06-01,24500.00,0.12,85.50,true,负责开源社区技术答疑与全景开发指南撰写
+00108,陈思琪,Finance & Legal,Compliance Counsel,2021-09-09,26800.00,0.10,92.00,true,"第三方开源库依赖合规审查。
+涵盖 MIT, Apache 2.0 与 BSD 授权对齐。"
+00109,David Miller,Customer Success,Key Account Manager,2022-12-05,19500.00,0.15,83.20,false,常驻华东大区客户现场技术支持中
+00110,赵雪薇,Frontend & WebView2,UI Framework Specialist,2024-04-01,27000.00,0.16,95.60,true,负责 Monaco/Highlight.js 语法着色集成
+00111,Kenji Sato,"Robotics, Automation",Senior Firmware Engineer,2021-07-15,33000.00,0.20,93.40,true,嵌入式串口通信与硬件协议解析
+00112,Elena Rostova,Big Data Analytics,Data Platform Architect,2020-10-30,41000.00,0.28,97.80,true,海量时序指标存储与聚合计算引擎
+00113,刘子航,Mobile Applications,Android Tech Lead,2023-03-22,29000.00,0.17,90.50,true,移动端跨平台框架性能调优与动态链接
+00114,Fatima Al-Mansoor,Cloud Architecture,Distinguished Engineer,2019-04-10,48000.00,0.35,99.20,true,"主导微服务治理网格建设。
+灾备双活架构与秒级容灾切换。"
+00115,孙浩然,DevOps & Tooling,Build System Engineer,2024-01-08,21500.00,0.14,89.10,true,自动化 CI/CD 流水线与构建缓存分发优化
+00116,Grace Hopper Jr.,Compiler Engineering,Language Runtime Specialist,2021-02-14,39500.00,0.26,98.10,true,AST 语法分析器与即时编译 (JIT) 性能瓶颈分析
+00117,周佳宁,Security Operations,SOC Threat Analyst,2022-09-19,25500.00,0.15,91.30,true,网络入侵检测与实时日志特征建模
+00118,Marcus Thorne,Enterprise Integration,"Lead ""API"" Gateway Engineer",2020-08-05,36000.00,0.22,94.70,true,高并发反向代理与限流熔断中间件
+00119,杨梦涵,Design Systems,Visual Design Specialist,2023-09-01,23000.00,0.12,87.60,true,图标栅格化规范与多主题深浅色配色板定义
+00120,Lucas Silva,Database Administration,Senior DBA,2021-05-18,31000.00,0.19,92.50,false,休假中（预计下周一复工）
+00121,钱若楠,Search Platform,Information Retrieval Engineer,2023-11-12,27500.00,0.16,93.00,true,分布式倒排索引构建与 BM25 算法优化
+00122,Oliver Queen,Release Engineering,Packaging Master,2022-04-20,24000.00,0.13,88.90,true,NSIS 离线安装包打包与静默升级脚本维护
+00123,吴天宇,Performance Optimization,Kernel Systems Engineer,2020-12-01,43500.00,0.30,99.50,true,"底层内存对齐与零拷贝优化。
+突破百万级行数据渲染 FPS 极限。"
+00124,Ingrid Bergman,Human Resources,Talent Acquisition Director,2019-01-15,32000.00,0.20,95.00,true,技术骨干人才引进与组织文化建设
+00125,郑博文,Technical Documentation,Chief Tech Writer,2022-06-10,20500.00,0.10,86.40,true,"全语言 API 接入指南编写。
+发布说明与常见问答汇总。"
+00126,Hiroshi Tanaka,Quality Engineering,Test Automation Lead,2021-08-25,28000.00,0.18,92.80,true,端到端压力测试与网络弱网模拟
+00127,宋美玲,Product Management,Senior Director of Product,2018-09-10,46000.00,0.32,98.90,true,产品全景路线图规划与商业化落地推进
+00128,Liam O'Connor,Network Operations,Backbone Network Engineer,2022-10-01,29500.00,0.17,91.00,true,BGP 跨域路由调度与 Anycast 节点选路
+00129,马嘉怡,Internationalization (i18n),Localization Lead,2023-04-15,22500.00,0.12,89.50,true,支持 28 种主流语言包实时动态热切换
+00130,Victor Hugo,System Architecture,Fellow Engineer,2017-03-01,55000.00,0.40,100.00,true,"OmniView 项目奠基人与首席架构顾问。
+专注于高性能客户端与跨平台技术探索。"

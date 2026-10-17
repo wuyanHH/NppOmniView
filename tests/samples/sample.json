@@ -1,0 +1,163 @@
+{
+  "system": {
+    "name": "NppOmniView",
+    "version": "2.2.0",
+    "codename": "Quantum Preview",
+    "release_date": "2026-10-16T14:10:00+08:00",
+    "is_stable_release": true,
+    "deprecated": false,
+    "build_number": 1024,
+    "binary_hash": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "maintainer": {
+      "name": "Antigravity Dev Team",
+      "email": "dev@omniview.org",
+      "url": "https://github.com/notepad-plus-plus/notepad-plus-plus",
+      "emergency_hotline": null
+    }
+  },
+  "primitives_type_test": {
+    "strings": {
+      "plain_ascii": "The quick brown fox jumps over the lazy dog",
+      "chinese_utf8": "Notepad++ 全能实时双向预览与源码抽屉",
+      "emoji_icons": "🚀 极速渲染 🔥 60 FPS 稳定流畅 ⭐ 全格式支持 ⚡",
+      "escaped_chars": "Tab:\t, Newline:\n, Quote:\", Backslash:\\, ForwardSlash:/",
+      "windows_filepath": "C:\\Program Files\\Notepad++\\plugins\\NppOmniView\\NppOmniView.dll",
+      "url_endpoint": "https://raw.githubusercontent.com/user/repo/main/api/v1/schema.json",
+      "iso_timestamp": "2026-10-16T06:10:00.000Z",
+      "empty_string": ""
+    },
+    "numbers": {
+      "positive_integer": 42,
+      "negative_integer": -1024,
+      "zero": 0,
+      "max_safe_integer": 9007199254740991,
+      "positive_float": 3.141592653589793,
+      "negative_float": -273.15,
+      "tiny_decimal": 0.00000001,
+      "scientific_positive": 1.989e+30,
+      "scientific_negative": 6.62607015e-34
+    },
+    "booleans": {
+      "boolean_true": true,
+      "boolean_false": false
+    },
+    "null_values": {
+      "explicit_null": null,
+      "unassigned_field": null
+    }
+  },
+  "special_key_names": {
+    "camelCaseKey": "Camel Value",
+    "snake_case_key": "Snake Value",
+    "kebab-case-key": "Kebab Value",
+    "Keys With Spaces": "Spaced Key Value",
+    "dot.separated.key": "Dot Key Value",
+    "0": "Numeric Key Zero",
+    "1": "Numeric Key One",
+    "@metadata": "Prefixed Key Value"
+  },
+  "empty_containers": {
+    "empty_object": {},
+    "empty_array": []
+  },
+  "deep_nested_hierarchy": {
+    "level_1": {
+      "description": "第 1 层：应用上下文",
+      "level_2": {
+        "description": "第 2 层：渲染控制器",
+        "level_3": {
+          "description": "第 3 层：WebView2 虚拟桥接",
+          "level_4": {
+            "description": "第 4 层：Scintilla 编辑管道",
+            "level_5": {
+              "description": "第 5 层：底层叶子节点数据，测试深度缩进连线与路径追踪",
+              "leaf_value": "Deep Target Reached",
+              "leaf_status": 200,
+              "is_leaf": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "collections": {
+    "string_tags": [
+      "markdown",
+      "json",
+      "csv",
+      "svg",
+      "yaml",
+      "mermaid",
+      "html"
+    ],
+    "number_series": [
+      2,
+      3,
+      5,
+      7,
+      11,
+      13,
+      17,
+      19,
+      23,
+      29
+    ],
+    "mixed_array": [
+      "文本元素",
+      999,
+      3.14,
+      true,
+      false,
+      null,
+      {
+        "inner_type": "nested_object",
+        "nested_flag": true
+      },
+      [
+        "nested_inner_array",
+        100
+      ]
+    ],
+    "items_dataset": [
+      {
+        "id": 101,
+        "sku": "PROD-A01",
+        "name": "OmniView Pro License",
+        "price": 199.99,
+        "in_stock": true,
+        "rating": 4.95,
+        "tags": ["core", "plugin", "desktop"],
+        "metadata": {
+          "warehouse_zone": "A-3",
+          "reorder_threshold": 20
+        }
+      },
+      {
+        "id": 102,
+        "sku": "PROD-B02",
+        "name": "Developer SDK Support Pass",
+        "price": 89.5,
+        "in_stock": false,
+        "rating": 4.6,
+        "tags": ["support", "api"],
+        "metadata": {
+          "warehouse_zone": "Digital",
+          "reorder_threshold": 0
+        }
+      },
+      {
+        "id": 103,
+        "sku": "PROD-C03",
+        "name": "WebView2 Hardware Accelerator",
+        "price": 320.0,
+        "in_stock": true,
+        "rating": 5.0,
+        "tags": ["graphics", "gpu"],
+        "metadata": {
+          "warehouse_zone": "G-12",
+          "reorder_threshold": 5
+        }
+      }
+    ]
+  }
+}

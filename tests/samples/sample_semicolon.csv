@@ -1,0 +1,9 @@
+product_id;product_name;category;unit_price;tax_rate;in_stock;supplier;warranty_period
+SKU-9001;OmniView Pro 商业许可;软件与订阅;199,00;0,19;true;Google DeepMind Tools;36 个月
+SKU-9002;超清视网膜扩展包;功能插件;49,50;0,19;true;OmniView Graphics Lab;永久授权
+SKU-9003;双向编辑器高级扩展模块;增强套件;89,00;0,19;true;Core Platform Team;12 个月
+SKU-9004;企业级离线私有化部署包;企业级套件;2499,00;0,19;false;Global Enterprise Sales;按年订阅
+SKU-9005;7x24 小时黄金专属技术支持;技术服务;599,00;0,19;true;Customer Success Org;按年续订
+SKU-9006;自动化 CI/CD 节点并发许可;DevOps 配额;399,00;0,19;true;Cloud Infrastructure Lab;永久授权
+SKU-9007;定制化语法高亮词法分析器;专业服务;850,00;0,19;true;Language Architecture Group;单次交付
+SKU-9008;安全审计与合规分析报告;咨询审计;1200,00;0,19;true;Special Security Operations;单次交付

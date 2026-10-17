@@ -1,0 +1,50 @@
+sequenceDiagram
+    autonumber
+    %% =========================================================================
+    %% NppOmniView Mermaid 时序图测试用例 (Sequence Diagram)
+    %% 覆盖参与者角色、激活生命线、同步与异步调用、alt/opt分支、并行块与便签
+    %% =========================================================================
+
+    actor Developer as 开发者 (Notepad++)
+    participant SciBridge as Scintilla 互操作网桥
+    participant Detector as MultiFormatDetector 探测器
+    participant Renderer as WebView2 渲染器 (DOM)
+    participant UndoEngine as 原子撤销堆栈
+
+    Developer->>SciBridge: 键入敲击字符 (WM_COMMAND / SCN_MODIFIED)
+    activate SciBridge
+    SciBridge->>Detector: 传入文档内容指纹与扩展名
+    activate Detector
+
+    alt 识别为 Mermaid 图表格式 (.mmd)
+        Detector-->>SciBridge: 返回 DocFormat.Mermaid (置信度 100%)
+    else 识别为 Markdown 嵌入格式 (.md)
+        Detector-->>SciBridge: 返回 DocFormat.Markdown (含 ```mermaid 代码块)
+    else 格式未知
+        Detector-->>SciBridge: 返回 DocFormat.Unknown (进入兜底候选视图)
+    end
+    deactivate Detector
+
+    SciBridge->>Renderer: 发送导航或渲染流水线 HTML
+    deactivate SciBridge
+    activate Renderer
+
+    Note over Renderer: 60 FPS GPU 硬件加速渲染，完成 SVG DOM 挂载
+
+    par 并行更新状态徽章
+        Renderer->>Renderer: 更新格式状态药丸 (Format Pill)
+    and 加载颜色调色盘
+        Renderer->>Renderer: 初始化 Mermaid Canvas 调色盘配置 (持久化存储)
+    end
+
+    opt 用户触发就地编辑
+        Developer->>Renderer: 双击图表节点或点击顶栏 [编辑图表] 按钮
+        Renderer-->>Developer: 弹出分屏就地视口编辑器 (omni-viewport-editor)
+        Developer->>Renderer: 修改节点标签文本并按下 Ctrl+S
+        Renderer->>UndoEngine: 发送原子写回指令 (UPDATE_BUFFER)
+        activate UndoEngine
+        UndoEngine-->>SciBridge: SCI_BEGINUNDOACTION -> 写入文本 -> SCI_ENDUNDOACTION
+        deactivate UndoEngine
+    end
+
+    deactivate Renderer

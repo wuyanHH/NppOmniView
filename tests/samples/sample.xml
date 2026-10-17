@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ========================================================================== -->
+<!-- NppOmniView XML 报文与配置文件高亮测试套件                                 -->
+<!-- 涵盖 XML 命名空间、XSD 架构引用、深层嵌套实体、属性值与 CDATA 特殊字符块   -->
+<!-- ========================================================================== -->
+<pluginConfiguration xmlns="http://schemas.notepad-plus-plus.org/omniview/v2"
+                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                     xsi:schemaLocation="http://schemas.notepad-plus-plus.org/omniview/v2 OmniViewConfig.xsd"
+                     version="2.3.0"
+                     environment="production">
+
+    <metadata>
+        <pluginName>NppOmniView</pluginName>
+        <displayName>Notepad++ OmniView 多格式全景实时预览引擎</displayName>
+        <author company="Google DeepMind">DeepMind Agentic Team</author>
+        <license type="MIT">https://opensource.org/licenses/MIT</license>
+        <repository url="https://github.com/notepad-plus-plus/plugins/NppOmniView"/>
+    </metadata>
+
+    <viewports defaultTheme="auto" enableHardwareAcceleration="true">
+        <!-- Markdown 渲染引擎参数配置 -->
+        <viewport format="Markdown" priority="10">
+            <setting key="enableGitHubAlerts" value="true"/>
+            <setting key="enableMathKaTeX" value="true"/>
+            <setting key="enableTaskLists" value="true"/>
+            <customStyles>
+                <![CDATA[
+                    .markdown-alert { border-radius: 6px; padding: 12px 16px; margin: 16px 0; }
+                    .katex-display { overflow-x: auto; padding: 8px 0; }
+                ]]>
+            </customStyles>
+        </viewport>
+
+        <!-- HTML 响应式沙箱配置 -->
+        <viewport format="Html" priority="20">
+            <setting key="defaultResolution" value="1920x1080"/>
+            <setting key="enableDeviceFrame" value="true"/>
+            <supportedPresets>
+                <preset id="desktop-1080p" width="1920" height="1080" isMobile="false" label="1080p 全高清"/>
+                <preset id="desktop-2k" width="2560" height="1440" isMobile="false" label="2K QHD 视网膜"/>
+                <preset id="tablet-ipad" width="768" height="1024" isMobile="true" label="iPad 平板"/>
+                <preset id="mobile-phone" width="390" height="844" isMobile="true" label="智能手机"/>
+            </supportedPresets>
+        </viewport>
+
+        <!-- Mermaid 图表引擎配置 -->
+        <viewport format="Mermaid" priority="30">
+            <setting key="theme" value="default"/>
+            <setting key="maxZoomRatio" value="5.0"/>
+            <setting key="enablePanAndZoom" value="true"/>
+        </viewport>
+    </viewports>
+
+    <!-- 安全限制策略配置 -->
+    <securityPolicy>
+        <sandboxPolicy allowScripts="true" allowSameOrigin="true" allowPopups="false"/>
+        <trustedHosts>
+            <host domain="cdn.jsdelivr.net" protocol="https"/>
+            <host domain="cdnjs.cloudflare.com" protocol="https"/>
+        </trustedHosts>
+    </securityPolicy>
+</pluginConfiguration>

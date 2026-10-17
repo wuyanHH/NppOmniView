@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <!-- 版本号定义与程序集元数据 (ExportPatcher 导出表注入补丁工具) -->
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <Product>NppOmniView Export Patcher</Product>
+    <Company>NppOmniView Open-Source Project</Company>
+    <Authors>NppOmniView Contributors</Authors>
+    <Copyright>Copyright © 2026 NppOmniView Contributors. All rights reserved.</Copyright>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="dnlib" Version="4.4.0"/>
+  </ItemGroup>
+</Project>

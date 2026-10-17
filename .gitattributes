@@ -1,0 +1,34 @@
+# ==============================================================================
+# NppOmniView - Git Attributes 行尾符与文件类型规范
+# ==============================================================================
+
+# 默认文本文件自动规范化为 CRLF (Windows 原生插件开发环境)
+* text=auto eol=crlf
+
+# 源码与项目配置
+*.cs text diff=csharp eol=crlf
+*.csproj text eol=crlf
+*.sln text eol=crlf
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# 文档与标记语言
+*.md text eol=crlf
+*.json text eol=crlf
+*.xml text eol=crlf
+*.yaml text eol=crlf
+*.yml text eol=crlf
+*.csv text eol=crlf
+*.tsv text eol=crlf
+*.svg text eol=crlf
+*.mmd text eol=crlf
+*.html text eol=crlf
+
+# 二进制资产与图片
+*.png binary
+*.jpg binary
+*.ico binary
+*.bmp binary
+*.dll binary
+*.exe binary

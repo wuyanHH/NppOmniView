@@ -1,0 +1,67 @@
+classDiagram
+    %% =========================================================================
+    %% NppOmniView Mermaid 类图测试用例 (Class Diagram)
+    %% 覆盖面向对象接口、抽象类、继承泛型、聚合关联、可见性修饰符与枚举
+    %% =========================================================================
+
+    class IDocumentProcessor~TResult~ {
+        <<interface>>
+        +ProcessAsync(snapshot, ct)* Task~TResult~
+        +CanHandle(format)* bool
+    }
+
+    class AbstractRenderer {
+        <<abstract>>
+        #WebView2Engine _engine
+        #string _currentTheme
+        +Render(context)* void
+        +SetZoomRatio(ratio) void
+        #ApplyTheme(isDarkMode) void
+    }
+
+    class MermaidDiagramRenderer {
+        -PanZoomController _panZoom
+        -string _canvasBgColor
+        +Render(context) void
+        +ExportToPng(scaleFactor) byte[]
+        +SetCanvasBg(color, name) void
+        +ResetTransform() void
+    }
+
+    class DocumentSnapshot {
+        +int DocumentId
+        +string FileName
+        +DocFormat Format
+        +long ContentLength
+        +DateTime Timestamp
+        +IsScript() bool
+    }
+
+    class DocFormat {
+        <<enumeration>>
+        Unknown
+        Markdown
+        Json
+        Csv
+        Svg
+        Yaml
+        Mermaid
+        Html
+        Code
+    }
+
+    class PanZoomController {
+        -double _scale
+        -double _panX
+        -double _panY
+        +ZoomIn() void
+        +ZoomOut() void
+        +Reset() void
+    }
+
+    %% 关联与继承关系
+    IDocumentProcessor <|.. AbstractRenderer : 实现
+    AbstractRenderer <|-- MermaidDiagramRenderer : 继承
+    MermaidDiagramRenderer *-- PanZoomController : 组合 (Composition)
+    DocumentSnapshot --> DocFormat : 依赖 (Dependency)
+    AbstractRenderer ..> DocumentSnapshot : 使用参数

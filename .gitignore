@@ -1,0 +1,39 @@
+# ==============================================================================
+# NppOmniView - Git Ignore 规范配置文件
+# 适用于 .NET / C# / Notepad++ 插件开源项目
+# ==============================================================================
+
+# 构建产物与编译输出目录 (Build Artifacts & Intermediate Outputs)
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+dist/
+
+# Visual Studio / Visual Studio Code 工作区临时配置与缓存
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+# 临时编译日志与调试文件
+*.log
+*.tmp
+*.temp
+*.cache
+
+# NuGet 临时包文件
+*.nupkg
+*.snupkg
+packages/
+!packages/repositories.config
+
+# Windows 系统生成文件
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# 本地 Agent / 临时任务与诊断目录
+.agents/

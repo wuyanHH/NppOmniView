@@ -1,0 +1,70 @@
+flowchart TD
+    %% =========================================================================
+    %% NppOmniView Mermaid 流程图全语法测试套件
+    %% 覆盖所有节点形状、各类型连线、多层子图、方向控制与自定义色彩样式
+    %% =========================================================================
+
+    subgraph UserSpace[Notepad++ 宿主与用户交互域]
+        direction TB
+        User([开发者击键输入]) -->|实时敲击| Buffer[/Scintilla 文本缓冲区/]
+        Shortcuts{{快捷键监听总线}}
+        Shortcuts -.->|F11| ZenTrigger[全屏沉浸禅模式]
+        Shortcuts -.->|Ctrl+Alt+F| FormatTrigger[智能一键格式化]
+        Shortcuts -.->|Ctrl+Alt+P| ToggleDock[打开/关闭 OmniView 停靠窗]
+    end
+
+    subgraph CoreEngine[NppOmniView C# 核心处理管道]
+        direction TB
+        Bridge[C# 互操作网桥 SCI_GETCHARACTERPOINTER]
+        Detector{智能格式探测器 MultiFormatDetector}
+        
+        Buffer ==>|UTF-8 字符流| Bridge
+        Bridge -->|文档上下文| Detector
+
+        Detector -->|Markdown| MarkdigProc[[Markdig 扩展解析管道]]
+        Detector -->|JSON| JsonProc[(System.Text.Json DOM 树)]
+        Detector -->|CSV/TSV| CsvProc[\二维结构化网格序列化器/]
+        Detector -->|SVG| SvgProc(((SVG XML 校验器)))
+        Detector -->|YAML| YamlProc[YamlDotNet / js-yaml 解析器]
+        Detector -->|Mermaid| MmdProc>Mermaid.js 图表渲染引擎]
+        Detector -->|HTML| HtmlProc{{响应式多视口沙箱 1080p}}
+        Detector -->|Code| CodeProc[/多语言源码高亮着色器/]
+    end
+
+    subgraph RenderingLayer[Microsoft Edge WebView2 渲染层]
+        direction LR
+        Loader[顶栏流光加载条] --> PulseDot((呼吸状态指示灯))
+        PulseDot --> DOMCanvas[60 FPS GPU 硬件加速画布]
+        DOMCanvas --> ExportTools[/一键导出 PNG / 复制矢量 SVG/]
+    end
+
+    subgraph AutoSyncSystem[全格式双向反向就地同步引擎]
+        direction TB
+        EditorArea[[就地视口编辑器 / 分屏联动 omni-viewport-editor]]
+        Debounce[前端流式响应控制器]
+        PostMessage[window.chrome.webview.postMessage]
+        UndoStack[(SCI_BEGINUNDOACTION 单次撤销保护堆栈)]
+
+        EditorArea -->|用户修改内容| Debounce
+        Debounce -->|UPDATE_BUFFER:| PostMessage
+        PostMessage --> UndoStack
+        UndoStack -.->|安全原子写回| Buffer
+    end
+
+    %% 跨子图核心流程连线
+    MarkdigProc --> DOMCanvas
+    JsonProc --> DOMCanvas
+    CsvProc --> DOMCanvas
+    SvgProc --> DOMCanvas
+    YamlProc --> DOMCanvas
+    MmdProc --> DOMCanvas
+    HtmlProc --> DOMCanvas
+    CodeProc --> DOMCanvas
+    DOMCanvas -.->|双击进入就地编辑| EditorArea
+
+    %% 自定义节点色彩样式
+    style User fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#ffffff
+    style Buffer fill:#0f172a,stroke:#38bdf8,stroke-width:2px,color:#f8fafc
+    style Detector fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#ffffff
+    style DOMCanvas fill:#10b981,stroke:#047857,stroke-width:2px,color:#ffffff
+    style UndoStack fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:#ffffff

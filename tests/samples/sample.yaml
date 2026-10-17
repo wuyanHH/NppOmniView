@@ -1,0 +1,127 @@
+# ==============================================================================
+# NppOmniView 全格式规范 YAML 综合测试文件
+# 覆盖基础标量、多行文本块、锚点与别名继承、流式语法、日期时间与深度嵌套配置
+# ==============================================================================
+
+app:
+  name: NppOmniView
+  codename: Quantum Omni
+  version: "2.2.0"
+  release_date: 2026-10-16
+  timestamp: 2026-10-16T14:10:00+08:00
+  license: MIT
+  is_production: true
+  author:
+    name: Antigravity Dev Team
+    email: dev@omniview.org
+    homepage: https://github.com/notepad-plus-plus/notepad-plus-plus
+
+# ------------------------------------------------------------------------------
+# 1. 标量数据类型全覆盖测试 (Scalars Test)
+# ------------------------------------------------------------------------------
+scalar_types:
+  strings:
+    plain_unquoted: Hello Notepad++ Community
+    single_quoted: 'It''s a lovely day with escaped single quotes'
+    double_quoted: "Line 1 with \t tab and \n newline escape"
+    unicode_and_emojis: "极速响应 ⚡ 60 FPS 流畅 🚀"
+    empty_string: ""
+  numbers:
+    integer_decimal: 42
+    integer_negative: -1024
+    integer_zero: 0
+    integer_octal: 0o755
+    integer_hexadecimal: 0xFF
+    float_standard: 3.14159265
+    float_negative: -273.15
+    float_scientific: 1.25e+6
+    float_special_inf: .inf
+    float_special_nan: .nan
+  booleans:
+    canonical_true: true
+    canonical_false: false
+    alternate_yes: yes
+    alternate_no: no
+    alternate_on: on
+    alternate_off: off
+  null_types:
+    standard_null: null
+    tilde_null: ~
+    empty_null:
+
+# ------------------------------------------------------------------------------
+# 2. 多行字符串处理块 (Multi-line Block Scalars)
+# ------------------------------------------------------------------------------
+multiline_blocks:
+  literal_block_preserve_newlines: |
+    这是字面量多行文本 (Literal |)。
+    所有的回车换行将被严格完整保留：
+      - 缩进结构一并保留
+      - 行号一一对应
+  folded_block_fold_to_spaces: >
+    这是折叠多行文本 (Folded >)。
+    在 YAML 规范中，
+    这些换行会被自动折叠为一个空格，
+    非常适合编写长段落描述。
+  strip_chomp_strip_trailing: |-
+    末尾完全不保留任何换行符号的文本块 (Strip |-)
+  keep_chomp_keep_trailing: |+
+    末尾强制保留所有多余换行的文本块 (Keep |+)
+
+
+# ------------------------------------------------------------------------------
+# 3. 模板复用、锚点与别名继承 (Anchors, Aliases & Merge Keys)
+# ------------------------------------------------------------------------------
+templates:
+  default_service_profile: &default_profile
+    engine: webview2
+    hardware_acceleration: true
+    max_memory_mb: 512
+    log_level: info
+    timeout_seconds: 30
+    retry_policy:
+      max_retries: 3
+      backoff_factor: 1.5
+
+services:
+  markdown_service:
+    <<: *default_profile
+    name: Markdown Renderer
+    syntax_features: [katex, highlight_js, task_lists, mermaid]
+    port: 9001
+
+  json_service:
+    <<: *default_profile
+    name: JSON Tree Engine
+    max_memory_mb: 1024  # 覆盖父级模板配置
+    port: 9002
+
+  csv_service:
+    <<: *default_profile
+    name: CSV Tabular Processor
+    max_memory_mb: 2048  # 大表格扩容内存
+    port: 9003
+
+# ------------------------------------------------------------------------------
+# 4. 集合与流式结构 (Sequences & Mappings)
+# ------------------------------------------------------------------------------
+collections:
+  block_sequence:
+    - Markdown
+    - JSON
+    - CSV
+    - SVG
+    - YAML
+    - Mermaid
+    - HTML
+  flow_sequence: [Python, CSharp, Java, Rust, Go, JavaScript, TypeScript]
+  flow_mapping: { host: "127.0.0.1", port: 8080, enable_ssl: false }
+  deep_nested_catalog:
+    category: Developer Tools
+    subcategories:
+      - name: Text Preview
+        extensions: [.md, .json, .csv, .yaml, .mmd]
+        active: true
+      - name: Graphic Vectors
+        extensions: [.svg]
+        active: true

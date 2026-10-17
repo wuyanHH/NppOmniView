@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" width="800" height="520">
+  <defs>
+    <!-- 渐变定义 -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#0f172a" />
+    </linearGradient>
+
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155" stop-opacity="0.6" />
+      <stop offset="100%" stop-color="#1e293b" stop-opacity="0.8" />
+    </linearGradient>
+
+    <linearGradient id="blueGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+
+    <linearGradient id="chartAreaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.0" />
+    </linearGradient>
+
+    <radialGradient id="neonRadial" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- 阴影与发光滤镜 -->
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+
+    <filter id="glowFilter" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <!-- 剪裁蒙版 -->
+    <clipPath id="chartClip">
+      <rect x="60" y="220" width="680" height="180" rx="8" />
+    </clipPath>
+  </defs>
+
+  <style>
+    .title-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 700; fill: #ffffff; }
+    .label-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; fill: #94a3b8; }
+    .metric-value { font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-weight: 800; font-size: 32px; fill: #f8fafc; }
+    .grid-line { stroke: #334155; stroke-dasharray: 4,4; stroke-width: 1; }
+  </style>
+
+  <!-- 画布底板 -->
+  <rect width="800" height="520" fill="url(#bgGrad)" />
+
+  <!-- 顶部主标题横幅 -->
+  <g transform="translate(40, 36)">
+    <!-- 状态指示点 -->
+    <circle cx="10" cy="12" r="6" fill="#10b981" filter="url(#glowFilter)" />
+    <circle cx="10" cy="12" r="3" fill="#ffffff" />
+    <text x="28" y="18" class="title-text" font-size="22">NppOmniView 实时性能与矢量渲染测试看板</text>
+    <text x="28" y="38" class="label-text">支持任意缩放、平移抓手、背景模式切换及 F2 实时源码双向热更</text>
+  </g>
+
+  <!-- 3 个核心 KPI 状态卡片 -->
+  <!-- 卡片 1: 渲染刷新率 -->
+  <g transform="translate(40, 96)" filter="url(#softShadow)">
+    <rect width="220" height="100" rx="12" fill="url(#cardGrad)" stroke="#475569" stroke-width="1" />
+    <text x="20" y="32" class="label-text">渲染帧率 (FPS)</text>
+    <text x="20" y="72" class="metric-value">60.0</text>
+    <path d="M 160 65 L 175 45 L 190 55 L 205 35" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+
+  <!-- 卡片 2: 解析延迟 -->
+  <g transform="translate(290, 96)" filter="url(#softShadow)">
+    <rect width="220" height="100" rx="12" fill="url(#cardGrad)" stroke="#475569" stroke-width="1" />
+    <text x="20" y="32" class="label-text">平均解析耗时 (ms)</text>
+    <text x="20" y="72" class="metric-value" fill="#38bdf8">4.25</text>
+    <circle cx="180" cy="55" r="22" fill="none" stroke="#334155" stroke-width="5" />
+    <circle cx="180" cy="55" r="22" fill="none" stroke="#38bdf8" stroke-width="5" stroke-dasharray="138" stroke-dashoffset="35" stroke-linecap="round" />
+  </g>
+
+  <!-- 卡片 3: 语法格式覆盖 -->
+  <g transform="translate(540, 96)" filter="url(#softShadow)">
+    <rect width="220" height="100" rx="12" fill="url(#cardGrad)" stroke="#475569" stroke-width="1" />
+    <text x="20" y="32" class="label-text">核心文档格式</text>
+    <text x="20" y="72" class="metric-value" fill="#a855f7">7 / 7</text>
+    <!-- 六边形科技勋章 -->
+    <polygon points="180,35 198,45 198,65 180,75 162,65 162,45" fill="#a855f7" opacity="0.3" stroke="#a855f7" stroke-width="2" />
+    <text x="180" y="59" font-family="sans-serif" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">100%</text>
+  </g>
+
+  <!-- 下方贝塞尔趋势图表主卡片 -->
+  <g transform="translate(40, 220)" filter="url(#softShadow)">
+    <rect width="720" height="240" rx="14" fill="url(#cardGrad)" stroke="#475569" stroke-width="1" />
+    <text x="24" y="36" class="title-text" font-size="16">文档流式解析吞吐量与内存开销 (24 小时走势图)</text>
+
+    <!-- 坐标轴参考网格线 -->
+    <line x1="24" y1="70" x2="696" y2="70" class="grid-line" />
+    <line x1="24" y1="120" x2="696" y2="120" class="grid-line" />
+    <line x1="24" y1="170" x2="696" y2="170" class="grid-line" />
+    <line x1="24" y1="210" x2="696" y2="210" stroke="#475569" stroke-width="1" />
+
+    <!-- 趋势渐变面积填充 -->
+    <path d="M 40 180 C 120 160, 180 190, 260 130 C 340 70, 420 150, 500 100 C 580 50, 640 90, 680 75 L 680 210 L 40 210 Z" fill="url(#chartAreaGrad)" />
+
+    <!-- 趋势贝塞尔曲线 -->
+    <path d="M 40 180 C 120 160, 180 190, 260 130 C 340 70, 420 150, 500 100 C 580 50, 640 90, 680 75" fill="none" stroke="url(#blueGlow)" stroke-width="3.5" stroke-linecap="round" />
+
+    <!-- 关键数据节点圆圈 -->
+    <circle cx="260" cy="130" r="5" fill="#3b82f6" stroke="#ffffff" stroke-width="2" />
+    <circle cx="500" cy="100" r="5" fill="#06b6d4" stroke="#ffffff" stroke-width="2" />
+    <circle cx="680" cy="75" r="6" fill="#10b981" stroke="#ffffff" stroke-width="2" filter="url(#glowFilter)" />
+
+    <!-- 数据提示气泡 -->
+    <g transform="translate(620, 30)">
+      <rect width="68" height="26" rx="6" fill="#0f172a" stroke="#10b981" stroke-width="1" />
+      <text x="34" y="17" font-family="sans-serif" font-size="11" font-weight="bold" fill="#10b981" text-anchor="middle">峰值 99.8%</text>
+    </g>
+
+    <!-- X 轴刻度标签 -->
+    <text x="40" y="228" class="label-text" text-anchor="middle">00:00</text>
+    <text x="168" y="228" class="label-text" text-anchor="middle">04:00</text>
+    <text x="296" y="228" class="label-text" text-anchor="middle">08:00</text>
+    <text x="424" y="228" class="label-text" text-anchor="middle">12:00</text>
+    <text x="552" y="228" class="label-text" text-anchor="middle">16:00</text>
+    <text x="680" y="228" class="label-text" text-anchor="middle">20:00</text>
+  </g>
+
+  <!-- 底部微标 -->
+  <text x="400" y="495" class="label-text" text-anchor="middle">Generated for Notepad++ NppOmniView Vector Engine • 100% Scalable</text>
+</svg>
