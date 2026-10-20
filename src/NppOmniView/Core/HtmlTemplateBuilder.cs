@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Net;
 using System.Text;
 using System.Web.Script.Serialization;
@@ -17,7 +17,16 @@ namespace NppPlugin.OmniView.Core
 
         private static readonly JavaScriptSerializer JsonSerializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
 
-        public static string ConvertMarkdownToHtml(string md) => Markdown.ToHtml(md ?? string.Empty, MdPipeline);
+        /// <summary>
+        /// 将 Markdown 文本解析转换为高质量 HTML，集成 LaTeX 数学公式智能隔离预处理与行号精准对齐
+        /// </summary>
+        public static string ConvertMarkdownToHtml(string md)
+        {
+            if (string.IsNullOrEmpty(md)) return string.Empty;
+            string preprocessed = MarkdownMathProcessor.Preprocess(md, out var mathItems);
+            string html = Markdown.ToHtml(preprocessed, MdPipeline);
+            return MarkdownMathProcessor.Postprocess(html, mathItems);
+        }
 
         private static string SafeEmbedJson(string json)
         {
@@ -37,6 +46,7 @@ namespace NppPlugin.OmniView.Core
         private const string IconAlign = "<svg class='btn-icon' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='21' x2='3' y1='6' y2='6'/><line x1='21' x2='3' y1='12' y2='12'/><line x1='21' x2='3' y1='18' y2='18'/></svg>";
         private const string IconExport = "<svg class='btn-icon' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'/><polyline points='7 10 12 15 17 10'/><line x1='12' x2='12' y1='15' y2='3'/></svg>";
         private const string IconEmptyDoc = "<svg width='48' height='48' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z'/><polyline points='14 2 14 8 20 8'/><line x1='9' y1='13' x2='15' y2='13'/><line x1='9' y1='17' x2='13' y2='17'/></svg>";
+        private const string IconDatabase = "<svg width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><ellipse cx='12' cy='5' rx='9' ry='3'/><path d='M21 12c0 1.66-4 3-9 3s-9-1.34-9-3'/><path d='M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5'/></svg>";
         private const string IconTag = "<svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z'/><path d='M7 7h.01'/></svg>";
         private const string IconExpand = "<svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='15 3 21 3 21 9'/><polyline points='9 21 3 21 3 15'/><line x1='21' x2='14' y1='3' y2='10'/><line x1='3' x2='10' y1='21' y2='14'/></svg>";
         private const string IconCollapse = "<svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='4 14 10 14 10 20'/><polyline points='20 10 14 10 14 4'/><line x1='14' x2='21' y1='10' y2='3'/><line x1='3' x2='10' y1='21' y2='14'/></svg>";
@@ -64,6 +74,7 @@ namespace NppPlugin.OmniView.Core
         private const string IconSearch = "<svg class='search-icon' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='11' cy='11' r='8'/><path d='m21 21-4.35-4.35'/></svg>";
         private const string IconBook = "<svg class='btn-icon' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 19.5A2.5 2.5 0 0 1 6.5 17H20'/><path d='M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z'/></svg>";
         private const string IconList = "<svg class='btn-icon' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='8' y1='6' x2='21' y2='6'/><line x1='8' y1='12' x2='21' y2='12'/><line x1='8' y1='18' x2='21' y2='18'/><line x1='3' y1='6' x2='3.01' y2='6'/><line x1='3' y1='12' x2='3.01' y2='12'/><line x1='3' y1='18' x2='3.01' y2='18'/></svg>";
+        private const string IconSync = "<svg class='btn-icon' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m3 12 4-4 4 4'/><path d='M7 8v10a2 2 0 0 0 2 2h10'/><path d='m21 12-4 4-4-4'/><path d='M17 16V6a2 2 0 0 0-2-2H5'/></svg>";
         private const string IconShield = "<svg class='btn-icon' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/></svg>";
         private const string IconTerminal = "<svg class='btn-icon' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='4 17 10 11 4 5'/><line x1='12' y1='19' x2='20' y2='19'/></svg>";
         private const string IconLightbulb = "<svg class='tip-svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5'/><path d='M9 18h6'/><path d='M10 22h4'/></svg>";
@@ -545,6 +556,781 @@ namespace NppPlugin.OmniView.Core
             bodyContent = sb.ToString();
         }
 
+        /// <summary>
+        /// 构建专属于 Windows Batch (.bat / .cmd) 批处理脚本的全景辅助工作台、流程大纲与代码双模视图
+        /// </summary>
+        private static void BuildBatchRichView(DocumentContext doc, out string toolbarButtons, out string bodyContent)
+        {
+            var batch = BatchScriptAnalyzer.Analyze(doc.Content ?? "", doc.FullPath);
+            string rawCodeLiteral = SafeEmbedJson(JsonSerializer.Serialize(doc.Content ?? ""));
+            string safeCode = WebUtility.HtmlEncode(doc.Content ?? "");
+
+            toolbarButtons = BuildEditButton(DocFormat.Code) + @"
+                <button class='btn' onclick=""postAct('RUN_BATCH:normal')"" title='在当前脚本所在目录调起 CMD 运行当前脚本 (快捷键 F5)'>" + IconTerminal + @"<span>运行脚本</span></button>
+                <button class='btn' onclick=""postAct('RUN_BATCH:admin')"" title='以管理员权限在控制台中提权运行当前脚本'>" + IconShield + @"<span>管理员</span></button>
+                <button class='btn' onclick=""copyEntireCode()"" title='复制全部批处理源码'>" + IconCopy + @"<span>复制代码</span></button>
+                <div class='dropdown'>
+                    <button class='btn btn-dropdown'><span>视图模式</span> " + IconChevronDown + @"</button>
+                    <div class='dropdown-menu'>
+                        " + BuildUnifiedViewSwitchGroup(DocFormat.Code) + @"
+                    </div>
+                </div>";
+
+            var sb = new StringBuilder(16384);
+
+            // 1. 顶部副工具栏 (Sub-Toolbar): 模式切换与关键指标徽章
+            sb.Append(@"
+                <div class='view-toolbar batch-toolbar'>
+                    <div class='toolbar-group'>
+                        <span class='format-pill batch-format-pill'>BATCH 批处理</span>
+                        <div class='ps-segmented-group'>
+                            <button class='btn-pill active' id='btn-batch-mode-bench' onclick='switchBatchViewMode(""bench"")' title='批处理专用辅助工作台、标签大纲与安全审查'>" + IconList + @"<span>工作台</span></button>
+                            <button class='btn-pill' id='btn-batch-mode-code' onclick='switchBatchViewMode(""code"")' title='语法高亮与行号代码浏览'>" + IconCode + @"<span>源码浏览</span></button>
+                        </div>
+                    </div>
+                    <div class='toolbar-group ps-stats-group' style='justify-content: flex-end;'>");
+
+            if (batch.SecurityNotices.Count > 0)
+            {
+                sb.Append("<span class='stats-tag ps-warn-badge' onclick='switchBatchTab(\"security\")' style='cursor:pointer;' title='点击查看安全审查提醒'>⚠️ " + batch.SecurityNotices.Count + " 项安全提醒</span>");
+            }
+            else
+            {
+                sb.Append("<span class='stats-tag' style='color:#10b981;' title='安全检测已通过'>✓ 语法安全合规</span>");
+            }
+
+            sb.Append(@"
+                        <span class='stats-tag'>" + batch.TotalLines + @" 行</span>
+                        <span class='stats-tag'>" + batch.Labels.Count + @" 标签</span>
+                    </div>
+                </div>");
+
+            // 2. 模式 A: 批处理工作台视图 (#batch-bench-view)
+            sb.Append(@"
+                <div class='batch-doc-container' id='batch-bench-view'>
+                    <!-- Hero 概览卡片 -->
+                    <div class='ps-hero-card batch-hero-card'>
+                        <div class='ps-hero-header'>
+                            <div class='ps-title-wrap'>
+                                <span class='ps-hero-icon batch-hero-icon'>" + IconTerminal + @"</span>
+                                <div>
+                                    <h1 class='ps-script-title'>" + WebUtility.HtmlEncode(batch.ScriptName) + @"</h1>
+                                    <div class='ps-hero-badges'>
+                                        <span class='ps-badge'>Windows 批处理</span>");
+
+            if (batch.HasDelayedExpansion)
+            {
+                sb.Append("<span class='ps-badge' style='background:rgba(59,130,246,0.12);color:#3b82f6;' title='已启用延迟变量扩展，支持在循环中使用 !var!'>! 延迟扩展已启用</span>");
+            }
+            if (batch.HasUtf8CodePage)
+            {
+                sb.Append("<span class='ps-badge' style='background:rgba(16,185,129,0.12);color:#10b981;' title='已声明 chcp 65001 UTF-8 字符集'>✓ UTF-8 代码页</span>");
+            }
+            if (batch.HasEchoOff)
+            {
+                sb.Append("<span class='ps-badge' title='首行已声明关闭命令回显'>@echo off</span>");
+            }
+
+            sb.Append(@"
+                                    </div>
+                                </div>
+                            </div>
+                            <div class='ps-hero-stats'>
+                                <div class='ps-stat-box'><span class='stat-num'>" + batch.TotalLines + @"</span><span class='stat-label'>代码行数</span></div>
+                                <div class='ps-stat-box'><span class='stat-num'>" + batch.Labels.Count + @"</span><span class='stat-label'>跳转标签</span></div>
+                                <div class='ps-stat-box'><span class='stat-num'>" + batch.SecurityNotices.Count + @"</span><span class='stat-label'>审计项</span></div>
+                            </div>
+                        </div>
+
+                        <!-- 快速操作执行栏 -->
+                        <div class='batch-hero-actions'>
+                            <button class='btn-pill primary' onclick=""postAct('RUN_BATCH:normal')"" title='在当前脚本目录打开 CMD 终端运行'>" + IconTerminal + @"<span>运行脚本 (%~dp0)</span></button>
+                            <button class='btn-pill' onclick=""postAct('RUN_BATCH:admin')"" title='请求管理员权限在控制台中提权运行'>" + IconShield + @"<span>以管理员身份运行</span></button>
+                            <button class='btn-pill' onclick=""copyEntireCode()"" title='复制完整脚本代码'>" + IconCopy + @"<span>复制源码</span></button>
+                        </div>
+                    </div>
+
+                    <!-- 选项卡切换栏 (Tab Bar) -->
+                    <div class='batch-tab-bar'>
+                        <button class='batch-tab-btn active' id='tab-btn-labels' onclick='switchBatchTab(""labels"")'>
+                            " + IconList + @"
+                            <span>流程与标签大纲</span>
+                            <span class='batch-tab-badge'>" + batch.Labels.Count + @"</span>
+                        </button>
+                        <button class='batch-tab-btn' id='tab-btn-security' onclick='switchBatchTab(""security"")'>
+                            " + IconShield + @"
+                            <span>安全与风险审计</span>
+                            <span class='batch-tab-badge " + (batch.SecurityNotices.Count > 0 ? "warn" : "") + @"'>" + batch.SecurityNotices.Count + @"</span>
+                        </button>
+                        <button class='batch-tab-btn' id='tab-btn-cheatsheet' onclick='switchBatchTab(""cheatsheet"")'>
+                            " + IconLightbulb + @"
+                            <span>语法与变量速查</span>
+                        </button>
+                    </div>
+
+                    <!-- Tab 1: 流程与标签大纲 -->
+                    <div class='batch-tab-pane' id='batch-pane-labels'>");
+
+            if (batch.Labels.Count > 0)
+            {
+                sb.Append(@"
+                        <div class='batch-hint-bar'>
+                            <span>点击任意标签，驱动 Notepad++ 编辑器光标精准平滑跳转并高亮该行：</span>
+                        </div>
+                        <div class='batch-labels-grid'>");
+
+                foreach (var lbl in batch.Labels)
+                {
+                    sb.Append(@"
+                            <div class='batch-label-item' onclick='jumpToBatchLabel(" + lbl.LineNumber + @", """ + WebUtility.HtmlEncode(lbl.Name).Replace("\"", "\\\"") + @""")' title='点击在编辑器中直达第 " + lbl.LineNumber + @" 行'>
+                                <div class='batch-label-left'>
+                                    <span class='batch-label-badge'>" + WebUtility.HtmlEncode(lbl.Name) + @"</span>
+                                    <span class='batch-label-desc'>" + WebUtility.HtmlEncode(lbl.Description) + @"</span>
+                                </div>
+                                <span class='batch-label-line'>第 " + lbl.LineNumber + @" 行 →</span>
+                            </div>");
+                }
+
+                sb.Append("</div>");
+            }
+            else
+            {
+                sb.Append(@"
+                        <div class='ps-template-hint-card'>
+                            <div class='hint-icon'>" + IconList + @"</div>
+                            <div class='hint-content'>
+                                <div class='hint-title'><span>当前脚本未定义 :label 跳转标签</span></div>
+                                <div class='hint-desc'>此脚本当前为线性顺序执行逻辑。若添加如 <code>:start</code>, <code>:build</code>, <code>:error_handler</code> 等子程序或分支标签，将在此处自动生成可视化流程跳转树。</div>
+                            </div>
+                        </div>");
+            }
+
+            sb.Append("</div>"); // End batch-pane-labels
+
+            // Tab 2: 安全与风险审计
+            sb.Append(@"
+                    <div class='batch-tab-pane' id='batch-pane-security' style='display:none;'>");
+
+            if (batch.SecurityNotices.Count > 0)
+            {
+                sb.Append("<div class='batch-sec-list'>");
+                foreach (var sn in batch.SecurityNotices)
+                {
+                    string levelCls = sn.Level == "danger" ? "sec-danger" : (sn.Level == "warning" ? "sec-warn" : "sec-info");
+                    string levelIcon = sn.Level == "danger" ? "[高危]" : (sn.Level == "warning" ? "[警告]" : "[提示]");
+
+                    sb.Append(@"
+                        <div class='batch-sec-card " + levelCls + @"'>
+                            <div class='sec-card-header'>
+                                <span class='sec-card-title'>" + levelIcon + " " + WebUtility.HtmlEncode(sn.Title) + @"</span>
+                                <button class='btn-pill btn-xs' onclick='jumpToBatchLabel(" + sn.LineNumber + @", ""安全审计点"")'>跳转至第 " + sn.LineNumber + @" 行 →</button>
+                            </div>
+                            <div class='sec-card-detail'>" + WebUtility.HtmlEncode(sn.Detail) + @"</div>");
+
+                    if (!string.IsNullOrEmpty(sn.Snippet))
+                    {
+                        sb.Append("<div class='sec-card-snippet'><code>" + WebUtility.HtmlEncode(sn.Snippet) + "</code></div>");
+                    }
+
+                    sb.Append("</div>");
+                }
+                sb.Append("</div>");
+            }
+            else
+            {
+                sb.Append(@"
+                    <div class='ps-template-hint-card' style='border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.05);'>
+                        <div class='hint-icon' style='background:rgba(16,185,129,0.15); color:#10b981;'>✓</div>
+                        <div class='hint-content'>
+                            <div class='hint-title' style='color:#10b981;'><span>安全审查通过</span></div>
+                            <div class='hint-desc'>未在当前脚本中检测到磁盘格式化 (format)、强行删库或底层磁盘修改等高危破坏性指令。</div>
+                        </div>
+                    </div>");
+            }
+
+            sb.Append("</div>"); // End batch-pane-security
+
+            // Tab 3: 语法与变量速查 (CheatSheet)
+            sb.Append(@"
+                    <div class='batch-tab-pane' id='batch-pane-cheatsheet' style='display:none;'>
+                        <div class='batch-cheat-grid'>
+                            <div class='batch-cheat-item'>
+                                <div class='cheat-code'>%~dp0</div>
+                                <div class='cheat-desc'>当前批处理所在绝对目录路径（末尾自带反斜杠 \）</div>
+                            </div>
+                            <div class='batch-cheat-item'>
+                                <div class='cheat-code'>%*</div>
+                                <div class='cheat-desc'>传递给当前批处理脚本的所有命令行参数组合</div>
+                            </div>
+                            <div class='batch-cheat-item'>
+                                <div class='cheat-code'>%ERRORLEVEL%</div>
+                                <div class='cheat-desc'>上一条执行命令的退出码（0 表示成功，非 0 表示异常）</div>
+                            </div>
+                            <div class='batch-cheat-item'>
+                                <div class='cheat-code'>chcp 65001</div>
+                                <div class='cheat-desc'>将命令行活动代码页切换为 UTF-8，彻底解决中文乱码</div>
+                            </div>
+                            <div class='batch-cheat-item'>
+                                <div class='cheat-code'>setlocal enabledelayedexpansion</div>
+                                <div class='cheat-desc'>启用变量延迟扩展，在 for / if 循环块内部支持 !var! 动态求值</div>
+                            </div>
+                            <div class='batch-cheat-item'>
+                                <div class='cheat-code'>%~nx0</div>
+                                <div class='cheat-desc'>当前执行的脚本文件名及后缀（例如 build.bat）</div>
+                            </div>
+                        </div>
+                        <div class='batch-hint-bar' style='margin-top:10px;'>
+                            <span>[推荐] 常用标准脚本头模板：<code>@echo off &amp;&amp; chcp 65001 &gt;nul &amp;&amp; cd /d &quot;%~dp0&quot;</code></span>
+                        </div>
+                    </div>
+                </div>"); // End batch-bench-view
+
+            // 3. 模式 B: 源代码高亮视图 (#code-viewer-root)
+            sb.Append(@"
+                <div class='code-viewer-container' id='code-viewer-root' style='display:none;'>
+                    <pre><code class='language-batch'>" + safeCode + @"</code></pre>
+                </div>");
+
+            // 4. 挂载数据与脚本
+            sb.Append(@"
+                <script>
+                    window.__RAW_CODE__ = " + rawCodeLiteral + @";
+                    window.__CODE_LANG__ = 'batch';
+                </script>");
+
+            bodyContent = sb.ToString();
+        }
+
+        /// <summary>
+        /// 构建专属于 SQL 数据库脚本的结构大纲、对象导航与代码双模视图
+        /// </summary>
+        private static void BuildSqlRichView(DocumentContext doc, out string toolbarButtons, out string bodyContent)
+        {
+            var sql = SqlScriptAnalyzer.Analyze(doc.Content ?? "", doc.FullPath);
+            string rawCodeLiteral = SafeEmbedJson(JsonSerializer.Serialize(doc.Content ?? ""));
+            string safeCode = WebUtility.HtmlEncode(doc.Content ?? "");
+
+            toolbarButtons = BuildEditButton(DocFormat.Code) + @"
+                <button class='btn' onclick=""copyEntireCode()"" title='复制全部 SQL 脚本源码'>" + IconCopy + @"<span>复制代码</span></button>
+                <div class='dropdown'>
+                    <button class='btn btn-dropdown'><span>视图模式</span> " + IconChevronDown + @"</button>
+                    <div class='dropdown-menu'>
+                        " + BuildUnifiedViewSwitchGroup(DocFormat.Code) + @"
+                    </div>
+                </div>";
+
+            var sb = new StringBuilder(16384);
+
+            // 1. 顶部副工具栏 (Sub-Toolbar): 模式切换与关键指标徽章
+            sb.Append(@"
+                <div class='view-toolbar sql-toolbar'>
+                    <div class='toolbar-group'>
+                        <span class='format-pill sql-format-pill'>SQL 数据库脚本</span>
+                        <div class='ps-segmented-group'>
+                            <button class='btn-pill active' id='btn-sql-mode-outline' onclick='switchSqlViewMode(""outline"")' title='数据库对象与查询结构大纲'>" + IconList + @"<span>结构大纲</span></button>
+                            <button class='btn-pill' id='btn-sql-mode-code' onclick='switchSqlViewMode(""code"")' title='语法高亮与行号代码浏览'>" + IconCode + @"<span>源码浏览</span></button>
+                        </div>
+                    </div>
+                    <div class='toolbar-group ps-stats-group' style='justify-content: flex-end;'>
+                        <span class='stats-tag' style='color:#3b82f6;' title='推测 SQL 方言'>" + WebUtility.HtmlEncode(sql.DialectHint) + @"</span>
+                        <span class='stats-tag'>" + sql.TotalLines + @" 行</span>
+                        <span class='stats-tag'>" + sql.Items.Count + @" 项大纲</span>
+                    </div>
+                </div>");
+
+            // 2. 模式 A: 结构大纲视图 (#sql-outline-view)
+            sb.Append(@"
+                <div class='sql-doc-container' id='sql-outline-view'>
+                    <!-- Hero 概览卡片 -->
+                    <div class='ps-hero-card sql-hero-card'>
+                        <div class='ps-hero-header'>
+                            <div class='ps-title-wrap'>
+                                <span class='ps-hero-icon sql-hero-icon'>" + IconDatabase + @"</span>
+                                <div>
+                                    <h1 class='ps-script-title'>" + WebUtility.HtmlEncode(sql.ScriptName) + @"</h1>
+                                    <div class='ps-hero-badges'>
+                                        <span class='ps-badge'>" + WebUtility.HtmlEncode(sql.DialectHint) + @"</span>
+                                        <span class='ps-badge' style='background:rgba(59,130,246,0.12);color:#3b82f6;'>数据定义与操作脚本</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class='ps-hero-stats'>
+                                <div class='ps-stat-box'><span class='stat-num'>" + sql.TotalLines + @"</span><span class='stat-label'>总行数</span></div>
+                                <div class='ps-stat-box'><span class='stat-num'>" + sql.TableCount + @"</span><span class='stat-label'>数据表</span></div>
+                                <div class='ps-stat-box'><span class='stat-num'>" + (sql.ProcedureCount + sql.FunctionCount) + @"</span><span class='stat-label'>过程/函数</span></div>
+                                <div class='ps-stat-box'><span class='stat-num'>" + (sql.ViewCount + sql.IndexCount) + @"</span><span class='stat-label'>视图/索引</span></div>
+                                <div class='ps-stat-box'><span class='stat-num'>" + (sql.QueryCount + sql.DmlCount) + @"</span><span class='stat-label'>查询/DML</span></div>
+                            </div>
+                        </div>
+
+                        <!-- 快速操作执行栏 -->
+                        <div class='sql-hero-actions' style='display:flex;gap:8px;margin-top:12px;'>
+                            <input type='text' id='sql-search-input' class='sql-search-box' placeholder='🔍 过滤表名、视图、存储过程、查询...' oninput='filterSqlItems()' />
+                            <button class='btn-pill' onclick=""copyEntireCode()"" title='复制完整 SQL 代码'>" + IconCopy + @"<span>复制源码</span></button>
+                        </div>
+                    </div>
+
+                    <!-- 大纲条目列表 -->
+                    <div class='sql-outline-pane'>");
+
+            if (sql.Items.Count > 0)
+            {
+                sb.Append(@"
+                        <div class='batch-hint-bar'>
+                            <span>点击任意对象或语句，驱动 Notepad++ 编辑器光标精准平滑跳转并高亮该行：</span>
+                        </div>
+                        <div class='sql-items-grid' id='sql-items-list'>");
+
+                foreach (var item in sql.Items)
+                {
+                    string badgeClass = "sql-badge-query";
+                    string typeName = "QUERY";
+                    switch (item.Type)
+                    {
+                        case SqlItemType.Table: badgeClass = "sql-badge-table"; typeName = "TABLE"; break;
+                        case SqlItemType.View: badgeClass = "sql-badge-view"; typeName = "VIEW"; break;
+                        case SqlItemType.Procedure: badgeClass = "sql-badge-proc"; typeName = "PROC"; break;
+                        case SqlItemType.Function: badgeClass = "sql-badge-func"; typeName = "FUNC"; break;
+                        case SqlItemType.Index: badgeClass = "sql-badge-index"; typeName = "INDEX"; break;
+                        case SqlItemType.Trigger: badgeClass = "sql-badge-trigger"; typeName = "TRIGGER"; break;
+                        case SqlItemType.Dml: badgeClass = "sql-badge-dml"; typeName = "DML"; break;
+                        case SqlItemType.Section: badgeClass = "sql-badge-section"; typeName = "SECTION"; break;
+                    }
+
+                    string safeName = WebUtility.HtmlEncode(item.Name);
+                    string safeDesc = WebUtility.HtmlEncode(item.Description);
+
+                    sb.Append(@"
+                            <div class='sql-item-card' data-name='" + safeName.ToLowerInvariant() + @"' data-desc='" + safeDesc.ToLowerInvariant() + @"' onclick='jumpToSqlItem(" + item.LineNumber + @", """ + safeName.Replace("\"", "\\\"") + @""")' title='点击直达第 " + item.LineNumber + @" 行'>
+                                <div class='sql-item-left'>
+                                    <span class='sql-type-badge " + badgeClass + @"'>" + typeName + @"</span>
+                                    <div class='sql-item-titles'>
+                                        <span class='sql-item-name'>" + safeName + @"</span>
+                                        " + (!string.IsNullOrEmpty(safeDesc) ? "<span class='sql-item-desc'>" + safeDesc + "</span>" : "") + @"
+                                    </div>
+                                </div>
+                                <span class='sql-item-line'>第 " + item.LineNumber + @" 行 →</span>
+                            </div>");
+                }
+
+                sb.Append("</div>");
+            }
+            else
+            {
+                sb.Append(@"
+                        <div class='ps-template-hint-card'>
+                            <div class='hint-icon'>" + IconDatabase + @"</div>
+                            <div class='hint-content'>
+                                <div class='hint-title'><span>未检测到明确的 SQL DDL/DML 结构声明</span></div>
+                                <div class='hint-desc'>当前文档暂未提取出 CREATE TABLE/VIEW、存储过程或顶层 SELECT 语句。可在顶部切换至【源码浏览】模式查看完整高亮内容。</div>
+                            </div>
+                        </div>");
+            }
+
+            sb.Append("</div></div>"); // End sql-outline-pane, sql-outline-view
+
+            // 3. 模式 B: 源代码高亮视图 (#code-viewer-root)
+            sb.Append(@"
+                <div class='code-viewer-container' id='code-viewer-root' style='display:none;'>
+                    <pre><code class='language-sql'>" + safeCode + @"</code></pre>
+                </div>");
+
+            // 4. 挂载数据与脚本
+            sb.Append(@"
+                <script>
+                    window.__RAW_CODE__ = " + rawCodeLiteral + @";
+                    window.__CODE_LANG__ = 'sql';
+                </script>");
+
+            bodyContent = sb.ToString();
+        }
+
+        /// <summary>
+        /// 构建专属于 Shell / Bash / Zsh 脚本的结构大纲、函数导航与代码双模视图
+        /// </summary>
+        private static void BuildShellRichView(DocumentContext doc, out string toolbarButtons, out string bodyContent)
+        {
+            var sh = ShellScriptAnalyzer.Analyze(doc.Content ?? "", doc.FullPath);
+            string rawCodeLiteral = SafeEmbedJson(JsonSerializer.Serialize(doc.Content ?? ""));
+            string safeCode = WebUtility.HtmlEncode(doc.Content ?? "");
+
+            toolbarButtons = BuildEditButton(DocFormat.Code) + @"
+                <button class='btn' onclick=""copyEntireCode()"" title='复制全部 Shell 脚本源码'>" + IconCopy + @"<span>复制代码</span></button>
+                <div class='dropdown'>
+                    <button class='btn btn-dropdown'><span>视图模式</span> " + IconChevronDown + @"</button>
+                    <div class='dropdown-menu'>
+                        " + BuildUnifiedViewSwitchGroup(DocFormat.Code) + @"
+                    </div>
+                </div>";
+
+            var sb = new StringBuilder(16384);
+
+            // 1. 顶部副工具栏 (Sub-Toolbar): 模式切换与关键指标徽章
+            sb.Append(@"
+                <div class='view-toolbar shell-toolbar'>
+                    <div class='toolbar-group'>
+                        <span class='format-pill shell-format-pill'>SHELL / BASH 脚本</span>
+                        <div class='ps-segmented-group'>
+                            <button class='btn-pill active' id='btn-sh-mode-outline' onclick='switchShellViewMode(""outline"")' title='脚本函数大纲与依赖导航'>" + IconList + @"<span>结构大纲</span></button>
+                            <button class='btn-pill' id='btn-sh-mode-code' onclick='switchShellViewMode(""code"")' title='语法高亮与行号代码浏览'>" + IconCode + @"<span>源码浏览</span></button>
+                        </div>
+                    </div>
+                    <div class='toolbar-group ps-stats-group' style='justify-content: flex-end;'>");
+
+            if (!string.IsNullOrEmpty(sh.Shebang))
+            {
+                sb.Append("<span class='stats-tag' style='color:#10b981;' title='解释器声明'>" + WebUtility.HtmlEncode(sh.Shebang) + "</span>");
+            }
+            if (sh.HasStrictErrorCheck)
+            {
+                sb.Append("<span class='stats-tag' style='color:#3b82f6;' title='已启用 set -e 严格错误中止模式'>✓ 严格容错模式</span>");
+            }
+
+            sb.Append(@"
+                        <span class='stats-tag'>" + sh.TotalLines + @" 行</span>
+                        <span class='stats-tag'>" + sh.FunctionCount + @" 函数</span>
+                    </div>
+                </div>");
+
+            // 2. 模式 A: 结构大纲视图 (#sh-outline-view)
+            sb.Append(@"
+                <div class='shell-doc-container' id='sh-outline-view'>
+                    <!-- Hero 概览卡片 -->
+                    <div class='ps-hero-card shell-hero-card'>
+                        <div class='ps-hero-header'>
+                            <div class='ps-title-wrap'>
+                                <span class='ps-hero-icon shell-hero-icon'>" + IconTerminal + @"</span>
+                                <div>
+                                    <h1 class='ps-script-title'>" + WebUtility.HtmlEncode(sh.ScriptName) + @"</h1>
+                                    <div class='ps-hero-badges'>
+                                        <span class='ps-badge'>" + (!string.IsNullOrEmpty(sh.Shebang) ? WebUtility.HtmlEncode(sh.Shebang) : "Bash / Shell 脚本") + @"</span>");
+
+            if (sh.HasStrictErrorCheck)
+            {
+                sb.Append("<span class='ps-badge' style='background:rgba(59,130,246,0.12);color:#3b82f6;'>严格错误捕捉 (set -e)</span>");
+            }
+
+            sb.Append(@"
+                                    </div>
+                                </div>
+                            </div>
+                            <div class='ps-hero-stats'>
+                                <div class='ps-stat-box'><span class='stat-num'>" + sh.TotalLines + @"</span><span class='stat-label'>总行数</span></div>
+                                <div class='ps-stat-box'><span class='stat-num'>" + sh.FunctionCount + @"</span><span class='stat-label'>函数定义</span></div>
+                                <div class='ps-stat-box'><span class='stat-num'>" + sh.ExportCount + @"</span><span class='stat-label'>环境变量</span></div>
+                                <div class='ps-stat-box'><span class='stat-num'>" + sh.SourceCount + @"</span><span class='stat-label'>外部依赖</span></div>
+                            </div>
+                        </div>
+
+                        <!-- 快速过滤与操作 -->
+                        <div class='shell-hero-actions' style='display:flex;gap:8px;margin-top:12px;'>
+                            <input type='text' id='sh-search-input' class='sql-search-box' placeholder='🔍 过滤函数、环境变量、source 外部脚本...' oninput='filterShellItems()' />
+                            <button class='btn-pill' onclick=""copyEntireCode()"" title='复制完整脚本代码'>" + IconCopy + @"<span>复制源码</span></button>
+                        </div>
+                    </div>
+
+                    <!-- 大纲条目列表 -->
+                    <div class='shell-outline-pane'>");
+
+            if (sh.Items.Count > 0)
+            {
+                sb.Append(@"
+                        <div class='batch-hint-bar'>
+                            <span>点击任意函数或依赖，驱动 Notepad++ 编辑器光标精准平滑跳转并高亮该行：</span>
+                        </div>
+                        <div class='sql-items-grid' id='sh-items-list'>");
+
+                foreach (var item in sh.Items)
+                {
+                    string badgeClass = "sql-badge-func";
+                    string typeName = "FUNC";
+                    switch (item.Type)
+                    {
+                        case ShellItemType.Function: badgeClass = "sql-badge-func"; typeName = "FUNC"; break;
+                        case ShellItemType.Export: badgeClass = "sql-badge-table"; typeName = "EXPORT"; break;
+                        case ShellItemType.Source: badgeClass = "sql-badge-view"; typeName = "SOURCE"; break;
+                        case ShellItemType.Section: badgeClass = "sql-badge-section"; typeName = "SECTION"; break;
+                    }
+
+                    string safeName = WebUtility.HtmlEncode(item.Name);
+                    string safeDesc = WebUtility.HtmlEncode(item.Description);
+
+                    sb.Append(@"
+                            <div class='sql-item-card' data-name='" + safeName.ToLowerInvariant() + @"' data-desc='" + safeDesc.ToLowerInvariant() + @"' onclick='jumpToShellItem(" + item.LineNumber + @", """ + safeName.Replace("\"", "\\\"") + @""")' title='点击直达第 " + item.LineNumber + @" 行'>
+                                <div class='sql-item-left'>
+                                    <span class='sql-type-badge " + badgeClass + @"'>" + typeName + @"</span>
+                                    <div class='sql-item-titles'>
+                                        <span class='sql-item-name'>" + safeName + @"</span>
+                                        " + (!string.IsNullOrEmpty(safeDesc) ? "<span class='sql-item-desc'>" + safeDesc + "</span>" : "") + @"
+                                    </div>
+                                </div>
+                                <span class='sql-item-line'>第 " + item.LineNumber + @" 行 →</span>
+                            </div>");
+                }
+
+                sb.Append("</div>");
+            }
+            else
+            {
+                sb.Append(@"
+                        <div class='ps-template-hint-card'>
+                            <div class='hint-icon'>" + IconTerminal + @"</div>
+                            <div class='hint-content'>
+                                <div class='hint-title'><span>当前脚本未提取到明确的函数定义</span></div>
+                                <div class='hint-desc'>此脚本当前可能为扁平命令行组合或未定义 <code>function foo()</code>。可在顶部切换至【源码浏览】查看完整高亮内容。</div>
+                            </div>
+                        </div>");
+            }
+
+            sb.Append("</div></div>"); // End shell-outline-pane, sh-outline-view
+
+            // 3. 模式 B: 源代码高亮视图 (#code-viewer-root)
+            sb.Append(@"
+                <div class='code-viewer-container' id='code-viewer-root' style='display:none;'>
+                    <pre><code class='language-bash'>" + safeCode + @"</code></pre>
+                </div>");
+
+            // 4. 挂载数据与脚本
+            sb.Append(@"
+                <script>
+                    window.__RAW_CODE__ = " + rawCodeLiteral + @";
+                    window.__CODE_LANG__ = 'bash';
+                </script>");
+
+            bodyContent = sb.ToString();
+        }
+
+
+        /// <summary>
+        /// 构建专属于 INI / TOML / CFG 配置文件的结构化属性网格与分区大纲视图
+        /// </summary>
+        private static void BuildIniRichView(DocumentContext doc, out string toolbarButtons, out string bodyContent)
+        {
+            var ini = IniConfigAnalyzer.Analyze(doc.Content ?? "", doc.FullPath);
+            string rawCodeLiteral = SafeEmbedJson(JsonSerializer.Serialize(doc.Content ?? ""));
+            string safeCode = WebUtility.HtmlEncode(doc.Content ?? "");
+
+            toolbarButtons = BuildEditButton(DocFormat.Code) + @"
+                <button class='btn' onclick=""copyEntireCode()"" title='复制完整配置内容'>" + IconCopy + @"<span>复制代码</span></button>
+                <div class='dropdown'>
+                    <button class='btn btn-dropdown'><span>视图模式</span> " + IconChevronDown + @"</button>
+                    <div class='dropdown-menu'>
+                        " + BuildUnifiedViewSwitchGroup(DocFormat.Code) + @"
+                    </div>
+                </div>";
+
+            var sb = new StringBuilder(16384);
+
+            sb.Append(@"
+                <div class='view-toolbar ini-toolbar'>
+                    <div class='toolbar-group'>
+                        <span class='format-pill ini-format-pill'>INI / TOML 配置</span>
+                        <div class='ps-segmented-group'>
+                            <button class='btn-pill active' id='btn-ini-mode-grid' onclick='switchIniViewMode(""grid"")' title='结构化属性表格视图'>" + IconGrid + @"<span>属性网格</span></button>
+                            <button class='btn-pill' id='btn-ini-mode-code' onclick='switchIniViewMode(""code"")' title='语法高亮与行号代码浏览'>" + IconCode + @"<span>源码浏览</span></button>
+                        </div>
+                    </div>
+                    <div class='toolbar-group ps-stats-group' style='justify-content: flex-end;'>
+                        <span class='stats-tag'>" + ini.Sections.Count + @" 分区</span>
+                        <span class='stats-tag'>" + ini.TotalKeys + @" 项配置</span>
+                        <span class='stats-tag'>" + ini.TotalLines + @" 行</span>
+                    </div>
+                </div>");
+
+            sb.Append(@"
+                <div class='ini-doc-container' id='ini-grid-view'>
+                    <div class='ini-search-bar' style='display:flex;gap:8px;margin-bottom:12px;'>
+                        <input type='text' id='ini-search-input' class='sql-search-box' placeholder='🔍 搜索配置项 Key、Value 或注释...' oninput='filterIniProperties()' />
+                        <button class='btn-pill' onclick='copyEntireCode()'>" + IconCopy + @"<span>复制源码</span></button>
+                    </div>
+                    <div class='ini-sections-wrap' id='ini-sections-list'>");
+
+            foreach (var sec in ini.Sections)
+            {
+                string safeSecName = WebUtility.HtmlEncode(sec.Name);
+                sb.Append(@"
+                    <div class='ini-section-card'>
+                        <div class='ini-section-header' onclick='jumpToIniLine(" + sec.LineNumber + @", """ + safeSecName.Replace("\"", "\\\"") + @""")' title='点击在编辑器中定位到该分区声明 (第 " + sec.LineNumber + @" 行)'>
+                            <span class='ini-sec-title'>[" + safeSecName + @"]</span>
+                            <span class='ini-sec-count'>" + sec.Properties.Count + @" 项配置 · 第 " + sec.LineNumber + @" 行 →</span>
+                        </div>
+                        <div class='ini-table-wrap'>
+                            <table class='ini-prop-table'>
+                                <thead>
+                                    <tr>
+                                        <th style='width: 35%;'>配置项 (Key)</th>
+                                        <th style='width: 35%;'>当前值 (Value)</th>
+                                        <th style='width: 30%;'>说明 (Comment)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>");
+
+                foreach (var p in sec.Properties)
+                {
+                    string safeKey = WebUtility.HtmlEncode(p.Key);
+                    string safeVal = WebUtility.HtmlEncode(p.Value);
+                    string safeComment = WebUtility.HtmlEncode(p.Comment);
+
+                    sb.Append(@"
+                                    <tr class='ini-prop-row' data-key='" + safeKey.ToLowerInvariant() + @"' data-val='" + safeVal.ToLowerInvariant() + @"' data-cmt='" + safeComment.ToLowerInvariant() + @"' onclick='jumpToIniLine(" + p.LineNumber + @", """ + safeKey.Replace("\"", "\\\"") + @""")' title='点击在编辑器中直达第 " + p.LineNumber + @" 行'>
+                                        <td class='ini-key-cell'><code>" + safeKey + @"</code></td>
+                                        <td class='ini-val-cell'><code>" + safeVal + @"</code></td>
+                                        <td class='ini-cmt-cell'>" + (!string.IsNullOrEmpty(safeComment) ? safeComment : "<span class='ini-no-cmt'>-</span>") + @"</td>
+                                    </tr>");
+                }
+
+                sb.Append(@"
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>");
+            }
+
+            sb.Append("</div></div>");
+
+            sb.Append(@"
+                <div class='code-viewer-container' id='code-viewer-root' style='display:none;'>
+                    <pre><code class='language-ini'>" + safeCode + @"</code></pre>
+                </div>");
+
+            sb.Append(@"
+                <script>
+                    window.__RAW_CODE__ = " + rawCodeLiteral + @";
+                    window.__CODE_LANG__ = 'ini';
+                </script>");
+
+            bodyContent = sb.ToString();
+        }
+
+        /// <summary>
+        /// 构建专属于 Python 脚本的函数大纲、类导航与代码双模视图
+        /// </summary>
+        private static void BuildPythonRichView(DocumentContext doc, out string toolbarButtons, out string bodyContent)
+        {
+            var py = PythonScriptAnalyzer.Analyze(doc.Content ?? "", doc.FullPath);
+            string rawCodeLiteral = SafeEmbedJson(JsonSerializer.Serialize(doc.Content ?? ""));
+            string safeCode = WebUtility.HtmlEncode(doc.Content ?? "");
+
+            toolbarButtons = BuildEditButton(DocFormat.Code) + @"
+                <button class='btn' onclick=""copyEntireCode()"" title='复制全部 Python 脚本源码'>" + IconCopy + @"<span>复制代码</span></button>
+                <div class='dropdown'>
+                    <button class='btn btn-dropdown'><span>视图模式</span> " + IconChevronDown + @"</button>
+                    <div class='dropdown-menu'>
+                        " + BuildUnifiedViewSwitchGroup(DocFormat.Code) + @"
+                    </div>
+                </div>";
+
+            var sb = new StringBuilder(16384);
+
+            sb.Append(@"
+                <div class='view-toolbar py-toolbar'>
+                    <div class='toolbar-group'>
+                        <span class='format-pill py-format-pill'>PYTHON 脚本</span>
+                        <div class='ps-segmented-group'>
+                            <button class='btn-pill active' id='btn-py-mode-outline' onclick='switchPyViewMode(""outline"")' title='类与函数符号大纲导航'>" + IconList + @"<span>结构大纲</span></button>
+                            <button class='btn-pill' id='btn-py-mode-code' onclick='switchPyViewMode(""code"")' title='语法高亮与行号代码浏览'>" + IconCode + @"<span>源码浏览</span></button>
+                        </div>
+                    </div>
+                    <div class='toolbar-group ps-stats-group' style='justify-content: flex-end;'>
+                        <span class='stats-tag'>" + py.TotalLines + @" 行</span>
+                        <span class='stats-tag'>" + py.ClassCount + @" 类</span>
+                        <span class='stats-tag'>" + py.FunctionCount + @" 函数/方法</span>
+                    </div>
+                </div>");
+
+            sb.Append(@"
+                <div class='py-doc-container' id='py-outline-view'>
+                    <div class='ps-hero-card py-hero-card'>
+                        <div class='ps-hero-header'>
+                            <div class='ps-title-wrap'>
+                                <span class='ps-hero-icon py-hero-icon'>" + IconCode + @"</span>
+                                <div>
+                                    <h1 class='ps-script-title'>" + WebUtility.HtmlEncode(py.ScriptName) + @"</h1>
+                                    <div class='ps-hero-badges'>
+                                        <span class='ps-badge'>Python 3 脚本</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class='ps-hero-stats'>
+                                <div class='ps-stat-box'><span class='stat-num'>" + py.TotalLines + @"</span><span class='stat-label'>总行数</span></div>
+                                <div class='ps-stat-box'><span class='stat-num'>" + py.ClassCount + @"</span><span class='stat-label'>类定义</span></div>
+                                <div class='ps-stat-box'><span class='stat-num'>" + py.FunctionCount + @"</span><span class='stat-label'>函数/方法</span></div>
+                            </div>
+                        </div>
+
+                        <div class='py-hero-actions' style='display:flex;gap:8px;margin-top:12px;'>
+                            <input type='text' id='py-search-input' class='sql-search-box' placeholder='🔍 过滤类名、函数名、参数列表...' oninput='filterPySymbols()' />
+                            <button class='btn-pill' onclick=""copyEntireCode()"" title='复制完整脚本代码'>" + IconCopy + @"<span>复制源码</span></button>
+                        </div>
+                    </div>
+
+                    <div class='py-outline-pane'>");
+
+            if (py.Symbols.Count > 0)
+            {
+                sb.Append(@"
+                        <div class='batch-hint-bar'>
+                            <span>点击任意类或函数，驱动 Notepad++ 编辑器光标精准平滑跳转并高亮该行：</span>
+                        </div>
+                        <div class='sql-items-grid' id='py-items-list'>");
+
+                foreach (var sym in py.Symbols)
+                {
+                    string badgeClass = "sql-badge-func";
+                    string typeName = "FUNC";
+                    switch (sym.Type)
+                    {
+                        case PySymbolType.Class: badgeClass = "sql-badge-table"; typeName = "CLASS"; break;
+                        case PySymbolType.Function: badgeClass = "sql-badge-func"; typeName = "FUNC"; break;
+                        case PySymbolType.Method: badgeClass = "sql-badge-proc"; typeName = "METHOD"; break;
+                    }
+
+                    string safeName = WebUtility.HtmlEncode(sym.Name);
+                    string safeDoc = WebUtility.HtmlEncode(sym.Docstring);
+                    string safeParams = WebUtility.HtmlEncode(sym.Parameters);
+
+                    sb.Append(@"
+                            <div class='sql-item-card' data-name='" + safeName.ToLowerInvariant() + @"' data-doc='" + safeDoc.ToLowerInvariant() + @"' onclick='jumpToPySymbol(" + sym.LineNumber + @", """ + safeName.Replace("\"", "\\\"") + @""")' title='点击直达第 " + sym.LineNumber + @" 行'>
+                                <div class='sql-item-left'>
+                                    <span class='sql-type-badge " + badgeClass + @"'>" + typeName + @"</span>
+                                    <div class='sql-item-titles'>
+                                        <span class='sql-item-name'>" + safeName + (!string.IsNullOrEmpty(safeParams) ? " <span style='font-weight:normal;color:var(--fg-muted);'>(" + safeParams + ")</span>" : "") + @"</span>
+                                        " + (!string.IsNullOrEmpty(safeDoc) ? "<span class='sql-item-desc'>" + safeDoc + "</span>" : "") + @"
+                                    </div>
+                                </div>
+                                <span class='sql-item-line'>第 " + sym.LineNumber + @" 行 →</span>
+                            </div>");
+                }
+
+                sb.Append("</div>");
+            }
+            else
+            {
+                sb.Append(@"
+                        <div class='ps-template-hint-card'>
+                            <div class='hint-icon'>" + IconCode + @"</div>
+                            <div class='hint-content'>
+                                <div class='hint-title'><span>当前 Python 脚本未提取到明确的类或函数定义</span></div>
+                                <div class='hint-desc'>此脚本当前可能为扁平顺序执行语句。可点击上方【源码浏览】查看完整语法高亮内容。</div>
+                            </div>
+                        </div>");
+            }
+
+            sb.Append("</div></div>");
+
+            sb.Append(@"
+                <div class='code-viewer-container' id='code-viewer-root' style='display:none;'>
+                    <pre><code class='language-python'>" + safeCode + @"</code></pre>
+                </div>");
+
+            sb.Append(@"
+                <script>
+                    window.__RAW_CODE__ = " + rawCodeLiteral + @";
+                    window.__CODE_LANG__ = 'python';
+                </script>");
+
+            bodyContent = sb.ToString();
+        }
         public static string BuildOmniViewHtml(DocumentContext doc, DetectionResult det, string baseHref = "", bool isDarkMode = false)
         {
             doc = doc ?? new DocumentContext { Content = string.Empty, FullPath = string.Empty, Extension = string.Empty };
@@ -571,6 +1357,26 @@ namespace NppPlugin.OmniView.Core
                 if (lang.Equals("powershell", StringComparison.OrdinalIgnoreCase))
                 {
                     formatClass = "fmt-code fmt-powershell";
+                }
+                else if (lang.Equals("batch", StringComparison.OrdinalIgnoreCase))
+                {
+                    formatClass = "fmt-code fmt-batch";
+                }
+                else if (lang.Equals("sql", StringComparison.OrdinalIgnoreCase))
+                {
+                    formatClass = "fmt-code fmt-sql";
+                }
+                else if (lang.Equals("bash", StringComparison.OrdinalIgnoreCase) || lang.Equals("shell", StringComparison.OrdinalIgnoreCase) || lang.Equals("sh", StringComparison.OrdinalIgnoreCase) || lang.Equals("zsh", StringComparison.OrdinalIgnoreCase))
+                {
+                    formatClass = "fmt-code fmt-shell";
+                }
+                else if (lang.Equals("python", StringComparison.OrdinalIgnoreCase))
+                {
+                    formatClass = "fmt-code fmt-python";
+                }
+                else if (lang.Equals("ini", StringComparison.OrdinalIgnoreCase) || lang.Equals("toml", StringComparison.OrdinalIgnoreCase) || lang.Equals("cfg", StringComparison.OrdinalIgnoreCase) || lang.Equals("conf", StringComparison.OrdinalIgnoreCase))
+                {
+                    formatClass = "fmt-code fmt-ini";
                 }
             }
 
@@ -635,6 +1441,7 @@ namespace NppPlugin.OmniView.Core
                     <div class='view-toolbar md-toolbar'>
                         <div class='toolbar-group'>
                             <span class='format-pill'>GFM 富文本</span>
+                            <button class='btn-pill active' id='btn-sync-scroll' onclick='toggleSyncScroll()' title='双向同步滚动：编辑区与预览窗口事实锁定在同一位置 (点击切换)'>" + IconSync + @"<span>同步滚动</span></button>
                             <button class='btn-pill' onclick=""postAct('MD_TO_HTML')"" title='导出为 HTML 源码'>" + IconExport + @"<span>导出 HTML</span></button>
                             <button class='btn-pill' onclick='enterEditMode()' title='在当前视口直接编辑 (快捷键 F2)'>" + IconEdit + @"<span>编辑文档</span></button>
                         </div>
@@ -993,19 +1800,96 @@ namespace NppPlugin.OmniView.Core
                 string rawXmlLiteral = SafeEmbedJson(JsonSerializer.Serialize(doc.Content ?? ""));
                 bodyContent = @"
                     <div class='view-toolbar xml-toolbar'>
-                        <div class='toolbar-group'>
-                            <button class='btn-pill' id='btn-toggle-types' onclick='toggleXmlAttributes()'>" + IconTag + @"<span>属性徽章</span></button>
-                            <button class='btn-pill' onclick='expandAllXml()'>" + IconExpand + @"<span>全部展开</span></button>
-                            <button class='btn-pill' onclick='collapseAllXml()'>" + IconCollapse + @"<span>全部折叠</span></button>
-                            <button class='btn-pill' onclick='copyFormattedXml()'>" + IconCopy + @"<span>复制 XML</span></button>
+                        <div class='toolbar-group xml-mode-group'>
+                            <span class='format-pill xml-format-pill'>XML</span>
+                            <div class='xml-segmented-group'>
+                                <button class='btn-pill active' id='btn-xml-mode-tree' onclick='switchXmlSubView(""tree"")' title='XML 交互结构树：层级缩进、节点折叠与双向就地编辑'>" + IconList + @"<span>结构树</span></button>
+                                <button class='btn-pill' id='btn-xml-mode-grid' onclick='switchXmlSubView(""grid"")' title='表格透视视图：智能提炼重复业务实体为多列表格，支持排序与 Excel 导出'>" + IconCsv + @"<span>表格透视</span></button>
+                                <button class='btn-pill' id='btn-xml-mode-json' onclick='switchXmlSubView(""json"")' title='标准 JSON 转换：保留完整根节点与类型推断，支持代码/树形双模对照与一键导出'>" + IconJson + @"<span>转 JSON</span></button>
+                            </div>
                         </div>
-                        <div class='search-box-wrap'>
-                            <span class='edit-tip-badge' title='双击节点或文本即可查看/就地编辑 (按 Ctrl+S 保存)'>" + IconLightbulb + @"<span>双击就地编辑</span></span>
-                            <input id='xml-filter' type='text' placeholder='筛选 XML 节点或属性...' oninput='filterXmlTree(this.value)' />
+                        <div class='toolbar-group xml-ops-group'>
+                            <button class='btn-pill' id='btn-toggle-types' onclick='toggleXmlAttributes()' title='切换属性展示模式 (徽章/内联/隐藏)'>" + IconTag + @"<span id='txt-attr-mode'>属性徽章</span></button>
+                            <button class='btn-pill' id='btn-toggle-closing-tags' onclick='toggleXmlClosingTags()' title='按需切换是否显示 </tag> 闭合标签行'>" + IconCode + @"<span id='txt-closing-tags-mode'>显示闭合行</span></button>
+                            <div class='dropdown xml-depth-dropdown'>
+                                <button class='btn-pill btn-dropdown' title='折叠展开层级控制'>" + IconExpand + @"<span>层级</span> " + IconChevronDown + @"</button>
+                                <div class='dropdown-menu'>
+                                    <button class='dropdown-item' onclick='expandXmlToDepth(1)'><span class='item-title'>展开至第 1 级 (根子节点)</span></button>
+                                    <button class='dropdown-item' onclick='expandXmlToDepth(2)'><span class='item-title'>展开至第 2 级 (二级分类)</span></button>
+                                    <button class='dropdown-item' onclick='expandXmlToDepth(3)'><span class='item-title'>展开至第 3 级 (三级数据)</span></button>
+                                    <div class='dropdown-divider'></div>
+                                    <button class='dropdown-item' onclick='expandAllXml()'><span class='item-title'>全部展开</span></button>
+                                    <button class='dropdown-item' onclick='collapseAllXml()'><span class='item-title'>全部折叠</span></button>
+                                </div>
+                            </div>
+                            <button class='btn-pill' onclick='copyFormattedXml()' title='复制格式化后的标准 XML 源码'>" + IconCopy + @"<span>复制 XML</span></button>
+                        </div>
+                        <div class='search-box-wrap xml-search-wrap'>
+                            <span class='edit-tip-badge' title='双击标签名、属性名、属性值或文本内容即可直接就地编辑 (按 Enter 立即同步回 Notepad++)'>" + IconLightbulb + @"<span>双击就地编辑</span></span>
+                            <div class='search-input-inner'>
+                                " + IconSearch + @"
+                                <input id='xml-filter' type='text' placeholder='搜索节点名、属性或值... (Enter 下一个)' oninput='filterXmlTree(this.value)' onkeydown='handleXmlSearchKey(event)' />
+                                <button id='xml-clear-search' class='btn-clear-search' onclick='clearXmlFilter()' title='清空过滤' style='display:none;'>" + IconClose + @"</button>
+                            </div>
                             <span id='xml-stats' class='stats-tag'></span>
                         </div>
                     </div>
-                    <div id='xml-root' class='json-container xml-container'></div>
+                    <!-- 实时 XPath 面包屑导航条 -->
+                    <div class='xml-breadcrumb-bar' id='xml-breadcrumb-bar'>
+                        <div class='breadcrumb-label'>XPath 路径:</div>
+                        <div class='xml-breadcrumbs' id='xml-breadcrumbs'>
+                            <span class='crumb-item active' onclick='jumpToXmlPath([])'>/</span>
+                        </div>
+                        <div class='breadcrumb-actions'>
+                            <button class='btn-crumb-tool' onclick='copyActiveXPath()' title='复制当前绝对 XPath 路径'>" + IconCopy + @"<span>复制 XPath</span></button>
+                            <button class='btn-crumb-tool' onclick='copyActiveNodeXml()' title='复制当前节点的完整 XML 片段'>" + IconCode + @"<span>复制节点</span></button>
+                        </div>
+                    </div>
+                    <!-- 主容器：树状视图 -->
+                    <div id='xml-tree-wrap' class='xml-view-container active'>
+                        <div id='xml-root' class='xml-container modern-tree badge-attrs'></div>
+                    </div>
+                    <!-- 表格透视视图 (Data Grid) -->
+                    <div id='xml-grid-wrap' class='xml-view-container' style='display:none;'>
+                        <div class='xml-grid-toolbar' id='xml-grid-toolbar'>
+                            <div class='grid-select-group'>
+                                <span class='grid-select-label'>表格实体：</span>
+                                <select id='xml-grid-selector' class='grid-select-box' onchange='renderXmlSelectedGrid(this.value)'></select>
+                            </div>
+                            <div class='grid-stats-group'>
+                                <span id='xml-grid-stats' class='stats-tag'></span>
+                                <button class='btn-pill' onclick='exportXmlGridAsCsv()' title='将此表格导出/复制为制表符表格数据 (可直接粘贴至 Excel/WPS)'>" + IconExport + @"<span>复制表格 (Excel)</span></button>
+                            </div>
+                        </div>
+                        <div class='xml-hint-banner' id='xml-grid-hint-banner'>
+                            <span class='hint-icon'>" + IconGrid + @"</span>
+                            <span class='hint-text'>表格透视自动提取 XML 中的重复数据集合（如记录、列表项），支持表头单击升降序排序与双击复制单元格</span>
+                        </div>
+                        <div id='xml-grid-content' class='csv-container xml-grid-content'></div>
+                    </div>
+                    <!-- 标准 JSON 转换视图 -->
+                    <div id='xml-json-wrap' class='xml-view-container' style='display:none;'>
+                        <div class='xml-json-toolbar'>
+                            <div class='toolbar-group'>
+                                <div class='xml-segmented-group'>
+                                    <button class='btn-pill active' id='btn-json-view-code' onclick='switchXmlJsonSubMode(""code"")' title='格式化 JSON 源码视图（带语法高亮）'>" + IconCode + @"<span>JSON 代码</span></button>
+                                    <button class='btn-pill' id='btn-json-view-tree' onclick='switchXmlJsonSubMode(""tree"")' title='JSON 交互折叠树状视图'>" + IconList + @"<span>JSON 树</span></button>
+                                </div>
+                            </div>
+                            <div class='grid-stats-group'>
+                                <span id='xml-json-stats' class='stats-tag'></span>
+                                <button class='btn-pill primary' onclick='copyXmlAsJson()' title='复制转换后的完整标准 JSON 格式文本'>" + IconCopy + @"<span>复制 JSON 数据</span></button>
+                            </div>
+                        </div>
+                        <div class='xml-hint-banner'>
+                            <span class='hint-icon'>⚡</span>
+                            <span class='hint-text'>遵循现代标准模型：100% 完整保留根节点，自动推断数值与布尔类型，与原始 XML 层次精准对齐</span>
+                        </div>
+                        <div id='xml-json-code-view' class='xml-json-code-container active'>
+                            <pre class='xml-json-pre'><code id='xml-json-code-content' class='language-json'></code></pre>
+                        </div>
+                        <div id='xml-json-tree-view' class='json-container xml-json-content' style='display:none;'></div>
+                    </div>
                     <script>window.__RAW_XML__ = " + rawXmlLiteral + @";</script>";
             }
             else if (det.Format == DocFormat.Code)
@@ -1015,6 +1899,26 @@ namespace NppPlugin.OmniView.Core
                 {
                     BuildPowerShellRichView(doc, out toolbarButtons, out bodyContent);
                 }
+                else if (lang.Equals("batch", StringComparison.OrdinalIgnoreCase))
+                {
+                    BuildBatchRichView(doc, out toolbarButtons, out bodyContent);
+                }
+                else if (lang.Equals("sql", StringComparison.OrdinalIgnoreCase))
+                {
+                    BuildSqlRichView(doc, out toolbarButtons, out bodyContent);
+                }
+                else if (lang.Equals("bash", StringComparison.OrdinalIgnoreCase) || lang.Equals("shell", StringComparison.OrdinalIgnoreCase) || lang.Equals("sh", StringComparison.OrdinalIgnoreCase) || lang.Equals("zsh", StringComparison.OrdinalIgnoreCase))
+                {
+                    BuildShellRichView(doc, out toolbarButtons, out bodyContent);
+                }
+                else if (lang.Equals("python", StringComparison.OrdinalIgnoreCase))
+                {
+                    BuildPythonRichView(doc, out toolbarButtons, out bodyContent);
+                }
+                else if (lang.Equals("ini", StringComparison.OrdinalIgnoreCase) || lang.Equals("toml", StringComparison.OrdinalIgnoreCase) || lang.Equals("cfg", StringComparison.OrdinalIgnoreCase) || lang.Equals("conf", StringComparison.OrdinalIgnoreCase))
+                {
+                    BuildIniRichView(doc, out toolbarButtons, out bodyContent);
+                }
                 else
                 {
                     int lineCount = (doc.Content ?? "").Split('\n').Length;
@@ -1022,7 +1926,7 @@ namespace NppPlugin.OmniView.Core
                     double sizeKb = Math.Round((double)charCount / 1024.0, 1);
 
                     toolbarButtons = BuildEditButton(DocFormat.Code) + @"
-                        <button class='btn' onclick=""copyEntireCode()"">" + IconCopy + @"<span>复制代码</span></button>
+                        <button class='btn' onclick=""copyEntireCode()"" title='复制全部源码'>" + IconCopy + @"<span>复制代码</span></button>
                         <div class='dropdown'>
                             <button class='btn btn-dropdown'><span>视图模式</span> " + IconChevronDown + @"</button>
                             <div class='dropdown-menu'>
@@ -1032,37 +1936,23 @@ namespace NppPlugin.OmniView.Core
                     string rawCodeLiteral = SafeEmbedJson(JsonSerializer.Serialize(doc.Content ?? ""));
                     string safeCode = WebUtility.HtmlEncode(doc.Content ?? "");
                     bodyContent = @"
-                        <div class='code-overview-wrapper'>
-                            <div class='code-overview-card'>
-                                <div class='code-lang-badge-large'>
-                                    <span class='code-icon'>&lt;/&gt;</span>
-                                    <span class='code-lang-title'>" + lang.ToUpperInvariant() + @" 源码文档</span>
+                        <div class='simple-code-container'>
+                            <div class='view-toolbar simple-toolbar'>
+                                <div class='toolbar-group'>
+                                    <span class='format-pill' style='background:rgba(100,116,139,0.12);color:#64748b;'>" + lang.ToUpperInvariant() + @" 源码</span>
+                                    <span class='stats-tag'>" + lineCount + @" 行</span>
+                                    <span class='stats-tag'>" + charCount + @" 字符</span>
+                                    <span class='stats-tag'>" + (sizeKb > 0 ? sizeKb + " KB" : charCount + " B") + @"</span>
                                 </div>
-                                <div class='code-stats-grid'>
-                                    <div class='code-stat-item'>
-                                        <span class='stat-val' id='code-stat-lines'>" + lineCount + @"</span>
-                                        <span class='stat-label'>代码行数</span>
-                                    </div>
-                                    <div class='code-stat-item'>
-                                        <span class='stat-val' id='code-stat-chars'>" + charCount + @"</span>
-                                        <span class='stat-label'>字符数量</span>
-                                    </div>
-                                    <div class='code-stat-item'>
-                                        <span class='stat-val' id='code-stat-size'>" + (sizeKb > 0 ? sizeKb + " KB" : charCount + " B") + @"</span>
-                                        <span class='stat-label'>文件大小</span>
-                                    </div>
-                                    <div class='code-stat-item'>
-                                        <span class='stat-val'>编辑中</span>
-                                        <span class='stat-label'>Scintilla 状态</span>
-                                    </div>
+                                <div class='toolbar-group' style='justify-content: flex-end;'>
+                                    <button class='btn-pill btn-xs' onclick=""copyEntireCode()"" title='复制全部源码'>" + IconCopy + @"<span>复制代码</span></button>
+                                    <button class='btn-pill btn-xs' onclick=""postAct('TOGGLE_AUTO_COLLAPSE')"" title='切换当打开无富预览文档时是否自动收起侧边面板'>⚡ 自动收折</button>
                                 </div>
-                                <div class='code-tip-box'>
-                                    <p>⚡ <strong>智能免渲染休眠</strong>：Notepad++ 原生编辑器已内置高速代码语法高亮与编辑能力。全能视图已主动休眠侧边栏 DOM 代码镜像，实现零额外 CPU 与内存消耗，避免左右冗余对比；全能视图核心算力专注于 Markdown、JSON、CSV、SVG、YAML、Mermaid、HTML、XML 等富格式与结构化数据的深度渲染与双向就地编辑。</p>
-                                </div>
-                                <div class='code-action-row'>
-                                    <button class='btn primary' onclick='toggleZenFullscreen(true)'>" + IconMaximize + @"<span>全屏沉浸展演 (F11)</span></button>
-                                    <button class='btn' id='btn-toggle-code-mirror' onclick='toggleCodeMirrorDisplay()'>" + IconCode + @"<span>按需展开代码镜像</span></button>
-                                </div>
+                            </div>
+                            <div class='simple-empty-state'>
+                                <div class='simple-empty-icon'>" + IconCode + @"</div>
+                                <div class='simple-empty-title'>通用源码模式 (免渲染静默)</div>
+                                <div class='simple-empty-desc'>当前文档为 " + lang.ToUpperInvariant() + @" 代码，Notepad++ 编辑器已提供语法高亮与编辑。<br/>右侧面板已保持极简静默；若开启【⚡ 自动收折】，切换到此类文件将自动收拢面板。</div>
                             </div>
                         </div>
                         <div class='code-viewer-container' id='code-viewer-root' style='display:none;'>
@@ -1076,19 +1966,36 @@ namespace NppPlugin.OmniView.Core
             }
             else
             {
+                int lineCount = (doc.Content ?? "").Split('\n').Length;
+                int charCount = (doc.Content ?? "").Length;
+                double sizeKb = Math.Round((double)charCount / 1024.0, 1);
                 toolbarButtons = BuildEditButton(DocFormat.Unknown) + @"
+                    <button class='btn' onclick=""copyEntireCode()"" title='复制全部内容'>" + IconCopy + @"<span>复制内容</span></button>
                     <div class='dropdown'>
                         <button class='btn primary btn-dropdown'><span>指定预览模式</span> " + IconChevronDown + @"</button>
                         <div class='dropdown-menu'>
                             " + BuildUnifiedViewSwitchGroup(DocFormat.Unknown) + @"
                         </div>
                     </div>";
+
                 bodyContent = @"
-                    <div class='notice-card'>
-                        <div class='notice-icon'>" + IconEmptyDoc + @"</div>
-                        <h3 class='notice-title'>未识别到特定格式</h3>
-                        <p class='notice-desc'>" + safeReason + @"</p>
-                        <p class='notice-hint'>您可以在编辑器中编辑 Markdown / JSON / CSV / SVG / YAML / Mermaid / HTML 文本，或点击上方按钮指定预览模式。</p>
+                    <div class='simple-code-container'>
+                        <div class='view-toolbar simple-toolbar'>
+                            <div class='toolbar-group'>
+                                <span class='format-pill' style='background:rgba(100,116,139,0.12);color:#64748b;'>纯文本 / LOG</span>
+                                <span class='stats-tag'>" + lineCount + @" 行</span>
+                                <span class='stats-tag'>" + charCount + @" 字符</span>
+                                <span class='stats-tag'>" + (sizeKb > 0 ? sizeKb + " KB" : charCount + " B") + @"</span>
+                            </div>
+                            <div class='toolbar-group' style='justify-content: flex-end;'>
+                                <button class='btn-pill btn-xs' onclick=""postAct('TOGGLE_AUTO_COLLAPSE')"" title='切换当打开无富预览文档时是否自动收起侧边面板'>⚡ 自动收折</button>
+                            </div>
+                        </div>
+                        <div class='simple-empty-state'>
+                            <div class='simple-empty-icon'>" + IconEmptyDoc + @"</div>
+                            <div class='simple-empty-title'>纯文本静默模式</div>
+                            <div class='simple-empty-desc'>当前文档为纯文本或未识别格式，侧边栏已自动保持轻量静默。<br/>若开启【⚡ 自动收折】，切换到此类文件时面板将自动收起退让屏幕。</div>
+                        </div>
                     </div>";
             }
 
@@ -1116,7 +2023,7 @@ namespace NppPlugin.OmniView.Core
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     ").Append(baseTag).Append(@"
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css' onerror='this.onerror=null;'>
-    <script defer src='https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js'></script>
+    <script defer src='https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js' onload='if (window.renderMathBlocks) renderMathBlocks();'></script>
     <script defer src='https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js'></script>
     <script defer src='https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js'></script>
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css' onerror='this.onerror=null;'>
@@ -1438,7 +2345,7 @@ namespace NppPlugin.OmniView.Core
         }
 
         /* 统一所有文档格式的面板与视口布局（对齐 HTML 标准贴顶全宽规格） */
-        body.fmt-html, body.fmt-svg, body.fmt-mermaid, body.fmt-csv, body.fmt-markdown, body.fmt-json, body.fmt-yaml, body.fmt-xml, body.fmt-powershell {
+        body.fmt-html, body.fmt-svg, body.fmt-mermaid, body.fmt-csv, body.fmt-markdown, body.fmt-json, body.fmt-yaml, body.fmt-xml, body.fmt-powershell, body.fmt-batch {
             padding: 82px 0 0 0 !important;
             margin: 0 !important;
             box-sizing: border-box !important;
@@ -1478,11 +2385,12 @@ namespace NppPlugin.OmniView.Core
             padding: 12px 16px 35vh 16px !important;
         }
 
-        body.fmt-powershell .ps-doc-container {
+        body.fmt-powershell .ps-doc-container,
+        body.fmt-batch .batch-doc-container {
             padding: 16px 20px 35vh 20px !important;
         }
 
-        body.fmt-code:not(.fmt-powershell) {
+        body.fmt-code:not(.fmt-powershell):not(.fmt-batch) {
             padding: 46px 14px 20px 14px;
         }
 
@@ -2471,6 +3379,149 @@ namespace NppPlugin.OmniView.Core
             --alert-bg: rgba(248, 81, 73, 0.12);
         }
 
+        /* ==================== BATCH WORKBENCH & LABELS STYLES ==================== */
+        body.fmt-batch {
+            background-color: var(--bg-body);
+        }
+        .batch-format-pill {
+            background: rgba(37, 99, 235, 0.12) !important;
+            color: #2563eb !important;
+            font-weight: 700 !important;
+            border: 1px solid rgba(37, 99, 235, 0.25) !important;
+        }
+        body.dark-mode .batch-format-pill {
+            background: rgba(96, 165, 250, 0.15) !important;
+            color: #60a5fa !important;
+            border-color: rgba(96, 165, 250, 0.3) !important;
+        }
+        .batch-doc-container {
+            width: 100%; max-width: 1100px; margin: 0 auto;
+            padding: 0 4px 60px 4px; box-sizing: border-box;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .batch-hero-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 10px; padding: 18px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+            display: flex; flex-direction: column; gap: 14px;
+        }
+        body.dark-mode .batch-hero-card { box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+        .batch-hero-icon {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+            color: #ffffff !important;
+            box-shadow: 0 3px 8px rgba(37, 99, 235, 0.3) !important;
+        }
+        .batch-hero-actions {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            padding-top: 10px; border-top: 1px solid var(--border);
+        }
+        .batch-tab-bar {
+            display: flex; align-items: center; gap: 6px;
+            border-bottom: 1px solid var(--border); padding-bottom: 2px;
+        }
+        .batch-tab-btn {
+            background: transparent; border: none; border-bottom: 2px solid transparent;
+            padding: 8px 12px; font-size: 12.5px; font-weight: 500; color: var(--text-muted);
+            cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.15s ease;
+        }
+        .batch-tab-btn:hover { color: var(--text-main); }
+        .batch-tab-btn.active {
+            color: #2563eb; border-bottom-color: #2563eb; font-weight: 600;
+        }
+        body.dark-mode .batch-tab-btn.active {
+            color: #60a5fa; border-bottom-color: #60a5fa;
+        }
+        .batch-tab-badge {
+            background: var(--bg-body); border: 1px solid var(--border); border-radius: 10px;
+            padding: 1px 6px; font-size: 11px; font-family: monospace;
+        }
+        .batch-tab-badge.warn {
+            background: rgba(239, 68, 68, 0.12); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); font-weight: 700;
+        }
+        .batch-hint-bar {
+            font-size: 12px; color: var(--text-muted); margin-bottom: 8px;
+        }
+        .batch-hint-bar code {
+            font-family: monospace; background: var(--bg-body); padding: 2px 5px; border-radius: 4px; border: 1px solid var(--border);
+        }
+        .batch-labels-grid {
+            display: flex; flex-direction: column; gap: 7px;
+        }
+        .batch-label-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 9px 12px; border-radius: 6px; border: 1px solid var(--border);
+            background: var(--bg-card); cursor: pointer; transition: all 0.15s ease;
+        }
+        .batch-label-item:hover {
+            border-color: #2563eb; background: rgba(37, 99, 235, 0.04);
+            transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        }
+        body.dark-mode .batch-label-item:hover {
+            border-color: #60a5fa; background: rgba(96, 165, 250, 0.08);
+        }
+        .batch-label-left {
+            display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+        }
+        .batch-label-badge {
+            font-family: monospace; font-size: 12px; font-weight: 700;
+            color: #2563eb; background: rgba(37, 99, 235, 0.1);
+            padding: 2px 7px; border-radius: 4px; flex-shrink: 0;
+        }
+        body.dark-mode .batch-label-badge {
+            color: #60a5fa; background: rgba(96, 165, 250, 0.15);
+        }
+        .batch-label-desc {
+            font-size: 12px; color: var(--text-main); overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
+        }
+        .batch-label-line {
+            font-size: 11.5px; font-family: monospace; color: var(--text-muted); flex-shrink: 0;
+        }
+        .batch-sec-list {
+            display: flex; flex-direction: column; gap: 9px;
+        }
+        .batch-sec-card {
+            border-radius: 8px; padding: 12px 14px; border: 1px solid var(--border);
+            background: var(--bg-card); display: flex; flex-direction: column; gap: 6px;
+        }
+        .batch-sec-card.sec-danger {
+            border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.05);
+        }
+        .batch-sec-card.sec-warn {
+            border-color: rgba(245, 158, 11, 0.35); background: rgba(245, 158, 11, 0.05);
+        }
+        .batch-sec-card.sec-info {
+            border-color: rgba(59, 130, 246, 0.3); background: rgba(59, 130, 246, 0.05);
+        }
+        .sec-card-header {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .sec-card-title {
+            font-size: 12.5px; font-weight: 600; color: var(--text-main);
+        }
+        .sec-card-detail {
+            font-size: 12px; color: var(--text-muted); line-height: 1.5;
+        }
+        .sec-card-snippet {
+            font-family: monospace; font-size: 11.5px; padding: 4px 8px; border-radius: 4px;
+            background: var(--bg-body); border: 1px solid var(--border); color: var(--text-main);
+            overflow-x: auto;
+        }
+        .batch-cheat-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 9px;
+        }
+        .batch-cheat-item {
+            padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border);
+            background: var(--bg-card); display: flex; flex-direction: column; gap: 4px;
+        }
+        .cheat-code {
+            font-family: monospace; font-size: 12.5px; font-weight: 700; color: #2563eb;
+        }
+        body.dark-mode .cheat-code { color: #60a5fa; }
+        .cheat-desc {
+            font-size: 11.5px; color: var(--text-muted); line-height: 1.4;
+        }
+
         /* ==================== POWERSHELL RICH VIEWPORT & DOCUMENTATION STYLES ==================== */
         body.fmt-powershell {
             background-color: var(--bg-body);
@@ -2828,30 +3879,141 @@ namespace NppPlugin.OmniView.Core
             display: flex; align-items: center; gap: 10px; width: 100%; justify-content: center;
         }
 
-        /* XML Interactive Tree Styles (Modern Chrome/VSCode DevTools Level) */
+        /* ==================== XML 现代全景视图与多模式设计系统 ==================== */
+        .xml-toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; flex-wrap: wrap; padding: 6px 12px; border-bottom: 1px solid var(--border);
+            background: var(--bg-card);
+        }
+        .xml-format-pill {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+            padding: 2px 7px; border-radius: 4px;
+            background: rgba(2, 132, 199, 0.12); color: #0284c7;
+            border: 1px solid rgba(2, 132, 199, 0.25);
+        }
+        body.dark-mode .xml-format-pill {
+            background: rgba(56, 189, 248, 0.15); color: #38bdf8;
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+        .xml-segmented-group {
+            display: inline-flex; align-items: center; gap: 2px;
+            background: var(--bg-body); border: 1px solid var(--border);
+            border-radius: 6px; padding: 2px;
+        }
+        .xml-segmented-group .btn-pill {
+            border: none; border-radius: 4px; padding: 3px 8px; font-size: 11.5px;
+            background: transparent; color: var(--text-muted); cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .xml-segmented-group .btn-pill:hover {
+            color: var(--text-main); background: var(--bg-hover);
+        }
+        .xml-segmented-group .btn-pill.active {
+            background: var(--bg-card); color: var(--btn-primary-bg);
+            font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        /* 实时 XPath 面包屑导航条 */
+        .xml-breadcrumb-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 4px 14px; background: var(--bg-card); border-bottom: 1px solid var(--border);
+            font-size: 11.5px; min-height: 28px; gap: 8px;
+        }
+        .breadcrumb-label {
+            color: var(--text-muted); font-size: 10.5px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0;
+        }
+        .xml-breadcrumbs {
+            display: flex; align-items: center; gap: 4px; overflow-x: auto;
+            white-space: nowrap; flex: 1; font-family: Consolas, monospace;
+            scrollbar-width: thin;
+        }
+        .crumb-item {
+            color: var(--text-muted); cursor: pointer; padding: 1px 6px;
+            border-radius: 4px; transition: all 0.12s ease;
+        }
+        .crumb-item:hover {
+            color: var(--btn-primary-bg); background: rgba(59, 130, 246, 0.08);
+            text-decoration: underline; text-underline-offset: 2px;
+        }
+        .crumb-item.active {
+            color: var(--text-main); font-weight: 600;
+            background: var(--bg-hover);
+        }
+        .crumb-sep {
+            color: var(--border-hover); font-size: 10px; user-select: none;
+        }
+        .breadcrumb-actions {
+            display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+        }
+        .btn-crumb-tool {
+            font-size: 11px; padding: 2px 7px; background: transparent;
+            border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted);
+            cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+            transition: all 0.15s ease;
+        }
+        .btn-crumb-tool:hover {
+            color: var(--btn-primary-bg); border-color: var(--btn-primary-bg);
+            background: var(--bg-hover);
+        }
+
+        /* XML 主容器与通用样式 */
+        .xml-view-container { width: 100%; height: auto; }
         .xml-container {
             font-family: Consolas, 'Cascadia Code', 'Fira Code', Monaco, monospace;
-            font-size: 13px; line-height: 1.6; padding: 12px 18px 60px 18px;
+            font-size: 12.5px; line-height: 1.6; padding: 12px 18px 40vh 18px;
             color: var(--text-main); user-select: text;
         }
         .xml-prolog {
-            padding: 3px 8px; margin-bottom: 8px; color: #8b5cf6;
+            padding: 3px 8px; margin-bottom: 10px; color: #8b5cf6;
             font-style: italic; background: rgba(139, 92, 246, 0.08);
             border: 1px solid rgba(139, 92, 246, 0.2);
-            border-radius: 4px; display: inline-block; font-size: 12px;
+            border-radius: 4px; display: inline-block; font-size: 11.5px;
         }
-        body.dark-mode .xml-prolog { color: #a78bfa; background: rgba(139, 92, 246, 0.15); border-color: rgba(139, 92, 246, 0.3); }
+        body.dark-mode .xml-prolog {
+            color: #a78bfa; background: rgba(139, 92, 246, 0.15);
+            border-color: rgba(139, 92, 246, 0.3);
+        }
 
         .xml-node {
             margin: 1px 0; position: relative;
         }
+        .xml-container summary,
         .xml-summary, .xml-leaf-row, .xml-close-tag-row, .xml-cdata-row, .xml-comment-row {
-            display: flex; align-items: center; flex-wrap: wrap;
-            padding: 2px 6px; border-radius: 4px; min-height: 24px;
-            position: relative; transition: background 0.15s ease;
+            display: flex !important;
+            align-items: baseline !important;
+            justify-content: flex-start !important;
+            flex-wrap: wrap !important;
+            padding: 2.5px 6px !important;
+            border-radius: 4px !important;
+            min-height: 24px !important;
+            position: relative !important;
+            transition: background 0.12s ease !important;
+            gap: 2px 6px !important;
+            text-align: left !important;
+            margin: 1px 0 !important;
         }
-        .xml-summary { cursor: pointer; list-style: none; }
-        .xml-summary::-webkit-details-marker { display: none; }
+        .xml-container summary,
+        .xml-summary {
+            cursor: pointer !important;
+            list-style: none !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+        }
+        .xml-line-content {
+            display: inline-flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 2px 6px;
+            vertical-align: baseline;
+            flex-shrink: 0;
+            max-width: 100%;
+        }
+        .xml-summary::-webkit-details-marker,
+        .xml-summary::marker {
+            display: none !important;
+            content: '' !important;
+        }
         .xml-summary:hover, .xml-leaf-row:hover, .xml-close-tag-row:hover, .xml-cdata-row:hover, .xml-comment-row:hover {
             background: rgba(0, 0, 0, 0.035);
         }
@@ -2863,105 +4025,129 @@ namespace NppPlugin.OmniView.Core
             background: rgba(255, 255, 255, 0.05);
         }
 
-        /* Guide Line */
+        /* 选定节点聚焦高亮状态：左侧指示条 + 柔和背景微光 */
+        .xml-node-focused {
+            background: rgba(59, 130, 246, 0.08) !important;
+            border-left: 3px solid #3b82f6 !important;
+            border-radius: 0 4px 4px 0 !important;
+            padding-left: 5px !important;
+        }
+        body.dark-mode .xml-node-focused {
+            background: rgba(56, 189, 248, 0.12) !important;
+            border-left-color: #38bdf8 !important;
+        }
+
+        /* 树形层级导引线 */
         .xml-node-children {
             margin-left: 10px; padding-left: 14px;
             border-left: 1px dashed var(--border);
             position: relative;
         }
         .xml-node:hover > .xml-node-children {
-            border-left-color: rgba(59, 130, 246, 0.4);
+            border-left-color: rgba(59, 130, 246, 0.45);
         }
 
-        /* Chevron indicator */
+        /* 折叠箭头指示器 */
         .xml-chevron {
-            width: 14px; height: 14px; margin-right: 4px;
+            width: 14px; height: 14px; margin-right: 2px;
             color: var(--text-muted); flex-shrink: 0;
             transition: transform 0.15s ease;
+            align-self: center;
         }
         details[open] > .xml-summary .xml-chevron {
             transform: rotate(90deg);
         }
-        .xml-spacer { width: 18px; height: 14px; flex-shrink: 0; }
+        .xml-spacer { width: 16px; height: 14px; flex-shrink: 0; align-self: center; }
 
-        /* Syntax Elements */
+        /* ================= 模式 1: 结构树 (XML Structure Tree) ================= */
+        .xml-container .xml-close-tag-row {
+            display: none; /* 默认现代紧凑排版，隐藏冗余闭合行 */
+        }
+        .xml-container.show-closing-tags .xml-close-tag-row {
+            display: flex !important; /* 开启后展示完整闭合标签行 */
+        }
         .xml-bracket {
             color: #64748b; font-weight: 500; user-select: none;
         }
         body.dark-mode .xml-bracket { color: #94a3b8; }
-
         .xml-tag-name {
             color: #0284c7; font-weight: 600; cursor: pointer;
             padding: 0 2px; border-radius: 3px;
-            transition: background 0.15s ease, color 0.15s ease;
+            transition: background 0.15s ease;
         }
         .xml-tag-name:hover {
-            background: rgba(2, 132, 199, 0.12);
-            text-decoration: underline; text-underline-offset: 2px;
+            background: rgba(2, 132, 199, 0.12); text-decoration: underline; text-underline-offset: 2px;
         }
         body.dark-mode .xml-tag-name { color: #38bdf8; }
-        body.dark-mode .xml-tag-name:hover { background: rgba(56, 189, 248, 0.2); }
+        .xml-leaf-colon {
+            color: var(--text-muted); margin: 0 3px; font-weight: 600; user-select: none;
+        }
+        .xml-self-close {
+            color: #94a3b8; font-size: 11px; font-weight: 700; user-select: none;
+            background: rgba(148, 163, 184, 0.12); padding: 0 4px; border-radius: 3px;
+            margin-left: 3px; line-height: 18px; display: inline-block;
+        }
+        body.dark-mode .xml-self-close {
+            color: #94a3b8; background: rgba(148, 163, 184, 0.22);
+        }
 
-        .xml-attr-list { display: inline-flex; flex-wrap: wrap; align-items: center; }
+        /* 属性样式与药丸体系 */
+        .xml-attr-list {
+            display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-left: 2px;
+        }
         .xml-attr {
-            margin: 0 3px; font-size: 12px; display: inline-flex; align-items: center;
-            border-radius: 3px; padding: 0 2px;
+            display: inline-flex; align-items: center; border-radius: 4px;
+            padding: 0 4px; font-size: 11.5px; line-height: 18px; white-space: nowrap;
         }
         .xml-attr-name {
-            color: #d97706; font-weight: 500; cursor: pointer;
-            padding: 0 2px; border-radius: 2px;
+            color: #7c3aed; font-weight: 600; cursor: pointer; padding: 0 1px;
         }
-        .xml-attr-name:hover {
-            background: rgba(217, 119, 6, 0.15); text-decoration: underline;
-        }
-        body.dark-mode .xml-attr-name { color: #fbbf24; }
-        body.dark-mode .xml-attr-name:hover { background: rgba(251, 191, 36, 0.2); }
+        .xml-attr-name:hover { text-decoration: underline; }
+        body.dark-mode .xml-attr-name { color: #c084fc; }
 
-        .xml-eq { color: var(--text-muted); margin: 0 1px; user-select: none; }
-        .xml-quote { color: #16a34a; user-select: none; }
+        .xml-eq { color: var(--text-muted); margin: 0; user-select: none; }
+        .xml-quote { color: #059669; user-select: none; }
         body.dark-mode .xml-quote { color: #4ade80; }
 
         .xml-attr-val {
-            color: #16a34a; cursor: pointer; padding: 0 2px;
-            border-radius: 2px; word-break: break-all;
+            color: #059669; font-weight: 500; cursor: pointer; padding: 0 1px; word-break: break-all;
         }
-        .xml-attr-val:hover {
-            background: rgba(22, 163, 74, 0.15); text-decoration: underline;
-        }
+        .xml-attr-val:hover { text-decoration: underline; }
         body.dark-mode .xml-attr-val { color: #4ade80; }
-        body.dark-mode .xml-attr-val:hover { background: rgba(74, 222, 128, 0.2); }
 
-        /* Badge Attr View Mode */
+        /* 属性展示模式：徽章模式 */
         .xml-container.badge-attrs .xml-attr {
-            background: rgba(0, 0, 0, 0.04); border: 1px solid var(--border);
-            padding: 1px 5px; margin: 1px 3px; border-radius: 4px;
+            background: rgba(124, 58, 237, 0.05); border: 1px solid rgba(124, 58, 237, 0.18);
+            padding: 1px 6px; border-radius: 4px;
         }
         body.dark-mode .xml-container.badge-attrs .xml-attr {
-            background: rgba(255, 255, 255, 0.06);
+            background: rgba(192, 132, 252, 0.1); border-color: rgba(192, 132, 252, 0.22);
         }
+        /* 属性展示模式：隐藏模式 */
         .xml-container.hide-attrs .xml-attr-list {
             display: none !important;
         }
 
-        /* Text Content */
+        /* 节点文本内容卡片 */
         .xml-text-val {
-            color: var(--text-main); margin: 0 4px; cursor: pointer;
-            background: rgba(0, 0, 0, 0.02); padding: 0 4px; border-radius: 3px;
-            border: 1px dashed transparent;
+            color: var(--text-main); margin: 0 3px; cursor: pointer;
+            background: rgba(0, 0, 0, 0.03); padding: 1px 6px; border-radius: 4px;
+            border: 1px dashed transparent; max-width: 65vw; overflow: hidden;
+            text-overflow: ellipsis; word-break: break-all;
         }
         .xml-text-val:hover {
             background: rgba(59, 130, 246, 0.08);
-            border-color: rgba(59, 130, 246, 0.3);
+            border-color: rgba(59, 130, 246, 0.35);
         }
         body.dark-mode .xml-text-val {
             background: rgba(255, 255, 255, 0.04);
         }
         body.dark-mode .xml-text-val:hover {
             background: rgba(59, 130, 246, 0.15);
-            border-color: rgba(59, 130, 246, 0.4);
+            border-color: rgba(59, 130, 246, 0.45);
         }
 
-        /* CDATA & Comment */
+        /* CDATA & 注释美化 */
         .xml-cdata-row { margin: 2px 0; }
         .xml-cdata-badge {
             font-size: 10px; font-weight: 700; background: rgba(6, 182, 212, 0.15);
@@ -2969,19 +4155,21 @@ namespace NppPlugin.OmniView.Core
         }
         body.dark-mode .xml-cdata-badge { background: rgba(6, 182, 212, 0.25); color: #22d3ee; }
         .xml-cdata-content {
-            background: rgba(6, 182, 212, 0.06); border-radius: 3px;
-            padding: 1px 6px; color: #0e7490; cursor: pointer;
+            background: rgba(6, 182, 212, 0.06); border-radius: 4px;
+            padding: 2px 8px; color: #0e7490; cursor: pointer; font-family: Consolas, monospace;
         }
         body.dark-mode .xml-cdata-content { background: rgba(6, 182, 212, 0.12); color: #67e8f9; }
 
+        .xml-comment-row { padding: 2px 6px !important; opacity: 0.82; }
         .xml-comment {
-            color: #94a3b8; font-style: italic; cursor: pointer;
-            padding: 1px 4px; border-radius: 3px;
+            color: #64748b; font-style: italic; font-size: 11.5px; cursor: pointer;
+            padding: 1px 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.02);
+            font-family: Consolas, monospace; max-width: 90vw; word-break: break-all;
         }
-        .xml-comment:hover { background: rgba(0, 0, 0, 0.04); }
-        body.dark-mode .xml-comment { color: #64748b; }
+        .xml-comment:hover { background: rgba(0, 0, 0, 0.05); }
+        body.dark-mode .xml-comment { color: #94a3b8; background: rgba(255, 255, 255, 0.03); }
 
-        /* Collapsed Preview */
+        /* 折叠状态预览指示 */
         details:not([open]) > .xml-summary .xml-collapsed-preview {
             display: inline-flex; align-items: center;
         }
@@ -2996,21 +4184,22 @@ namespace NppPlugin.OmniView.Core
         }
         .xml-ellipsis {
             background: rgba(0, 0, 0, 0.06); color: var(--text-muted);
-            padding: 0 4px; border-radius: 3px; margin: 0 2px; font-size: 11px;
+            padding: 0 5px; border-radius: 3px; margin: 0 4px; font-size: 11px;
         }
         body.dark-mode .xml-ellipsis { background: rgba(255, 255, 255, 0.1); }
 
-        /* Badge count */
+        /* 子节点数量徽章 */
         .xml-badge {
-            font-size: 11px; padding: 1px 6px; border-radius: 10px;
-            background: rgba(59, 130, 246, 0.12); color: #2563eb;
-            margin-left: 8px; font-weight: 500; user-select: none;
+            font-size: 10.5px; padding: 1px 6px; border-radius: 10px;
+            background: rgba(59, 130, 246, 0.1); color: #2563eb;
+            margin-left: 6px; font-weight: 500; user-select: none; flex-shrink: 0;
         }
-        body.dark-mode .xml-badge { background: rgba(59, 130, 246, 0.25); color: #60a5fa; }
+        body.dark-mode .xml-badge { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
 
-        /* Floating tool buttons on row hover */
+        /* 悬浮工具按钮组 (紧跟节点右侧呈现，触手可及) */
         .xml-row-tools {
-            margin-left: auto; display: none; align-items: center; gap: 4px;
+            margin-left: 8px; display: none; align-items: center; gap: 4px; flex-shrink: 0;
+            vertical-align: middle; align-self: center;
         }
         .xml-summary:hover > .xml-row-tools,
         .xml-leaf-row:hover > .xml-row-tools,
@@ -3027,25 +4216,25 @@ namespace NppPlugin.OmniView.Core
             background: rgba(59, 130, 246, 0.1);
         }
 
-        /* In-place input */
+        /* 就地编辑输入框 */
         .xml-inline-input {
             font-family: inherit; font-size: inherit; color: var(--text-main);
-            background: var(--bg-card); border: 1px solid #3b82f6;
-            border-radius: 3px; padding: 1px 4px; outline: none;
+            background: var(--bg-card); border: 1.5px solid #3b82f6;
+            border-radius: 3px; padding: 1px 5px; outline: none;
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25); min-width: 60px;
         }
 
-        /* Edit flash animation */
+        /* 编辑保存闪烁反馈 */
         @keyframes xmlEditFlash {
             0% { background: rgba(34, 197, 94, 0.35); }
             100% { background: transparent; }
         }
         .xml-just-edited {
             animation: xmlEditFlash 1.5s ease-out;
-            border-radius: 3px;
+            border-radius: 4px;
         }
 
-        /* Search highlight */
+        /* 搜索匹配项高亮与聚焦 */
         .xml-match-hl {
             background: #fde047; color: #854d0e; padding: 0 2px;
             border-radius: 2px; font-weight: 600;
@@ -3053,6 +4242,100 @@ namespace NppPlugin.OmniView.Core
         body.dark-mode .xml-match-hl {
             background: #ca8a04; color: #fef08a;
         }
+        .xml-match-focused {
+            background: #f97316 !important; color: #ffffff !important;
+            box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.4);
+        }
+
+        /* ================= 模式 3: 数据网格视图 (Grid / Table) ================= */
+        .xml-grid-toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px; background: var(--bg-card); border-bottom: 1px solid var(--border);
+            gap: 12px; flex-wrap: wrap;
+        }
+        .grid-select-group {
+            display: flex; align-items: center; gap: 8px; font-size: 12px;
+            font-weight: 500; color: var(--text-main);
+        }
+        .grid-select-box {
+            background: var(--bg-body); border: 1px solid var(--border);
+            border-radius: 5px; padding: 4px 8px; font-size: 12px;
+            color: var(--text-main); outline: none; cursor: pointer;
+        }
+        .grid-stats-group { display: flex; align-items: center; gap: 8px; }
+        .xml-grid-content {
+            padding: 12px 14px; overflow: auto; max-height: calc(100vh - 120px);
+        }
+        .xml-grid-table {
+            width: 100%; border-collapse: collapse; font-size: 12px;
+            font-family: Consolas, monospace; background: var(--bg-card);
+            border-radius: 6px; overflow: hidden; border: 1px solid var(--border);
+        }
+        .xml-grid-table th {
+            background: var(--bg-hover); padding: 8px 12px; text-align: left;
+            font-weight: 600; color: var(--text-main); border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; z-index: 2; cursor: pointer; user-select: none;
+        }
+        .xml-grid-table th:hover { background: rgba(59, 130, 246, 0.08); }
+        .xml-grid-table td {
+            padding: 6px 12px; border-bottom: 1px solid var(--border);
+            color: var(--text-main); white-space: nowrap; max-width: 360px;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .xml-grid-table tr:nth-child(even) { background: rgba(0, 0, 0, 0.015); }
+        body.dark-mode .xml-grid-table tr:nth-child(even) { background: rgba(255, 255, 255, 0.015); }
+        .xml-grid-table tr:hover { background: rgba(59, 130, 246, 0.06); }
+        .xml-grid-num-col { width: 44px; text-align: center; color: var(--text-muted); }
+
+        /* ================= 模式 4: XML 转 JSON 视图 ================= */
+        .xml-json-toolbar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px; background: var(--bg-card); border-bottom: 1px solid var(--border);
+        }
+        .json-toolbar-tip {
+            font-size: 12px; color: var(--text-muted); font-weight: 500;
+        }
+        .xml-json-content {
+            padding: 12px 18px 40vh 18px; font-family: Consolas, monospace; font-size: 12.5px;
+        }
+
+        /* 提示横幅与空状态引导卡片 */
+        .xml-hint-banner {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 12px; margin: 8px 14px 4px 14px;
+            background: rgba(37, 99, 235, 0.06);
+            border: 1px solid rgba(37, 99, 235, 0.16);
+            border-radius: 6px; font-size: 11.5px; color: var(--text-muted);
+        }
+        body.dark-mode .xml-hint-banner {
+            background: rgba(56, 189, 248, 0.08);
+            border-color: rgba(56, 189, 248, 0.2);
+            color: #94a3b8;
+        }
+        .xml-hint-banner .hint-icon { font-size: 13px; flex-shrink: 0; }
+        .xml-hint-banner .hint-text { line-height: 1.4; }
+
+        .xml-empty-card {
+            margin: 20px 14px; padding: 26px 20px; text-align: center;
+            background: var(--bg-card); border: 1px dashed var(--border);
+            border-radius: 8px; color: var(--text-muted);
+        }
+        .xml-empty-title { font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 6px; }
+        .xml-empty-desc { font-size: 12px; line-height: 1.6; max-width: 500px; margin: 0 auto; }
+
+        /* JSON 代码高亮视图容器 */
+        .xml-json-code-container {
+            padding: 8px 14px 40vh 14px;
+            overflow: auto;
+        }
+        .xml-json-pre {
+            margin: 0; padding: 14px 16px;
+            background: var(--bg-code, var(--bg-card)); border: 1px solid var(--border);
+            border-radius: 6px; font-family: Consolas, monospace; font-size: 12px;
+            line-height: 1.6; color: var(--text-main); overflow-x: auto;
+            white-space: pre; tab-size: 2;
+        }
+        .xml-json-pre code { font-family: inherit; }
 
         /* Modern Multi-Language Code Block Styles */
         .code-viewer-container { width: 100%; margin: 0; padding: 0; }
@@ -3833,6 +5116,139 @@ namespace NppPlugin.OmniView.Core
         .res-checkbox-row span {
             font-size: 12px; color: var(--text-main);
         }
+        /* ==================== INI & PYTHON & SIMPLE VIEW STYLES ==================== */
+        .ini-toolbar, .py-toolbar, .simple-toolbar {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+        }
+        .ini-format-pill {
+            background: rgba(245, 158, 11, 0.12);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.25);
+            font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;
+        }
+        .py-format-pill {
+            background: rgba(14, 165, 233, 0.12);
+            color: #0ea5e9;
+            border: 1px solid rgba(14, 165, 233, 0.25);
+            font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;
+        }
+        .ini-doc-container, .py-doc-container, .simple-code-container {
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            gap: 16px;
+            overflow-y: auto;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .ini-sections-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .ini-section-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-card);
+            overflow: hidden;
+            transition: all 0.15s ease;
+        }
+        .ini-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 14px;
+            background: rgba(0, 0, 0, 0.02);
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+        body.dark-mode .ini-section-header {
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .ini-sec-title {
+            font-family: monospace;
+            font-size: 13px;
+            font-weight: 700;
+            color: #f59e0b;
+        }
+        .ini-sec-count {
+            font-size: 11px;
+            color: var(--fg-muted);
+        }
+        .ini-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+        }
+        .ini-prop-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .ini-prop-table th {
+            padding: 7px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--fg-muted);
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+        .ini-prop-row {
+            cursor: pointer;
+            transition: background 0.12s ease;
+            border-bottom: 1px solid var(--border);
+        }
+        .ini-prop-row:hover {
+            background: rgba(59, 130, 246, 0.06);
+        }
+        .ini-key-cell {
+            padding: 6px 12px;
+            font-family: monospace;
+            font-weight: 600;
+            color: var(--fg);
+        }
+        .ini-val-cell {
+            padding: 6px 12px;
+            font-family: monospace;
+            color: #2563eb;
+        }
+        body.dark-mode .ini-val-cell {
+            color: #60a5fa;
+        }
+        .ini-cmt-cell {
+            padding: 6px 12px;
+            font-size: 11px;
+            color: var(--fg-muted);
+        }
+        .ini-no-cmt {
+            color: var(--border);
+        }
+        .simple-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 24px;
+            text-align: center;
+            color: var(--fg-muted);
+        }
+        .simple-empty-icon {
+            font-size: 32px;
+            opacity: 0.4;
+            margin-bottom: 12px;
+        }
+        .simple-empty-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--fg);
+            margin-bottom: 6px;
+        }
+        .simple-empty-desc {
+            font-size: 12px;
+            line-height: 1.6;
+            max-width: 420px;
+        }
     </style>
 </head>
 <body class='").Append(darkModeClass).Append(" ").Append(formatClass).Append(@"'>
@@ -3980,6 +5396,7 @@ namespace NppPlugin.OmniView.Core
         <div class='editor-subbar'>
             <div class='editor-subbar-tools' id='editor-subbar-tools'></div>
             <div class='editor-subbar-info' id='editor-subbar-info'>
+                <button class='btn-pill btn-mini primary' id='btn-editor-focus-npp' onclick='focusInNotepadPlusPlus()' title='直接回到 Notepad++ 主编辑器光标处编辑'>Notepad++ 编辑</button>
                 <button class='btn-pill btn-mini' id='btn-editor-layout-toggle' onclick='toggleEditorSplitLayout()' title='切换分栏联动与全屏视图'>全屏沉浸</button>
                 <span id='editor-pos-info'>第 1 行, 第 1 列</span>
             </div>
@@ -4003,10 +5420,40 @@ namespace NppPlugin.OmniView.Core
         window.__DOC_FORMAT__ = ").Append(JsonSerializer.Serialize(det.Format.ToString().ToLowerInvariant())).Append(@";
         function postAct(act) { window.chrome.webview.postMessage(act); }
 
+        // ==================== SAFE STORAGE HELPER (防沙箱 SecurityError 降级内存存储) ====================
+        const SafeStorage = {
+            _mem: {},
+            getItem: function(key) {
+                try {
+                    return (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem(key) : this._mem[key];
+                } catch(e) {
+                    return this._mem[key] || null;
+                }
+            },
+            setItem: function(key, val) {
+                try {
+                    if (typeof window !== 'undefined' && window.localStorage) window.localStorage.setItem(key, String(val));
+                } catch(e) {}
+                this._mem[key] = String(val);
+            }
+        };
+
         // ==================== UNIVERSAL IN-PLACE EDIT MODE STATE MACHINE ====================
         window.__isEditing = false;
         window.__ORIGINAL_DOC_CONTENT__ = '';
         window.__CSV_ROWS_BACKUP__ = null;
+
+        window.focusInNotepadPlusPlus = function() {
+            const ta = document.getElementById('omni-editor-textarea');
+            let line = 0;
+            if (ta) {
+                const textBeforeCaret = ta.value.substring(0, ta.selectionStart);
+                line = (textBeforeCaret.match(/\n/g) || []).length;
+            }
+            if (window.__isEditing) window.cancelEditMode();
+            postAct('JUMP_TO_LINE:' + line);
+            showToast('已聚焦定位到 Notepad++ 原生编辑器');
+        };
 
         window.toggleEditorSplitLayout = function() {
             const editorWrap = document.getElementById('omni-viewport-editor');
@@ -4773,31 +6220,129 @@ namespace NppPlugin.OmniView.Core
         };
 
         // ==================== IN-PLACE PREVIEW EDITING CONTROLLERS ====================
+        window.closeAllActiveInPlaceEditors = function(save = true, exceptEl = null) {
+            // 1. 关闭所有正在就地编辑的 Markdown 块
+            const editingMdBlocks = document.querySelectorAll('.md-block-editing');
+            editingMdBlocks.forEach(b => {
+                if (b === exceptEl || (exceptEl && b.contains(exceptEl))) return;
+                if (typeof b.__FINISH_EDIT__ === 'function') {
+                    b.__FINISH_EDIT__(save);
+                } else {
+                    b.classList.remove('md-block-editing');
+                    if (b.__ORIGINAL_HTML__) b.innerHTML = b.__ORIGINAL_HTML__;
+                }
+            });
+
+            // 2. 关闭所有活跃的 Mermaid 节点输入框
+            const mmEditors = document.querySelectorAll('.mermaid-node-editor');
+            mmEditors.forEach(ed => {
+                if (ed === exceptEl) return;
+                if (save && typeof ed.__COMMIT__ === 'function') {
+                    ed.__COMMIT__();
+                } else {
+                    ed.remove();
+                }
+            });
+
+            // 3. 关闭所有活跃的 SVG 文本输入框
+            const svgEditors = document.querySelectorAll('.svg-inline-text-editor');
+            svgEditors.forEach(ed => {
+                if (ed === exceptEl) return;
+                if (save && typeof ed.__COMMIT__ === 'function') {
+                    ed.__COMMIT__();
+                } else {
+                    ed.remove();
+                }
+            });
+
+            // 4. 关闭所有活跃的 JSON/YAML 行内输入框
+            const jsonInputs = document.querySelectorAll('.json-inline-input');
+            jsonInputs.forEach(inp => {
+                if (inp === exceptEl) return;
+                if (save && typeof inp.__COMMIT__ === 'function') {
+                    inp.__COMMIT__();
+                } else if (typeof inp.__CANCEL__ === 'function') {
+                    inp.__CANCEL__();
+                } else {
+                    inp.blur();
+                }
+            });
+
+            // 5. 关闭所有活跃的 XML 行内输入框
+            const xmlInputs = document.querySelectorAll('.xml-inline-input');
+            xmlInputs.forEach(inp => {
+                if (inp === exceptEl) return;
+                if (save && typeof inp.__COMMIT__ === 'function') {
+                    inp.__COMMIT__();
+                } else if (typeof inp.__CANCEL__ === 'function') {
+                    inp.__CANCEL__();
+                } else {
+                    inp.blur();
+                }
+            });
+
+            // 6. 关闭所有活跃的 CSV 单元格编辑
+            const csvCells = document.querySelectorAll('.csv-cell-in-editing');
+            csvCells.forEach(cell => {
+                if (cell === exceptEl) return;
+                if (typeof cell.__FINISH__ === 'function') {
+                    cell.__FINISH__(save);
+                } else {
+                    cell.blur();
+                }
+            });
+        };
+
+        // 全局空白处点击时自动保存并关闭未提交的就地编辑输入框 (含打开抑制保护与脱离 DOM 节点安全防护)
+        window.__suppressOutsideClickUntil = 0;
+        document.addEventListener('click', function(e) {
+            if (Date.now() < window.__suppressOutsideClickUntil) return;
+            if (!e.target || !document.body.contains(e.target)) return;
+            if (e.target.closest('.md-block-editor-wrap, .mermaid-node-editor, .svg-inline-text-editor, .json-inline-input, .xml-inline-input, .csv-cell-in-editing, .dropdown, .palette-popover, .btn, .btn-pill, button, input, textarea, a, select')) {
+                return;
+            }
+            window.closeAllActiveInPlaceEditors(true);
+        });
+
         window.initMarkdownInPlaceEditing = function() {
             const container = document.getElementById('md-container');
             if (!container) return;
+            if (container.hasAttribute('data-inplace-bound')) return;
+            container.setAttribute('data-inplace-bound', 'true');
 
             container.addEventListener('dblclick', function(e) {
+                window.__suppressOutsideClickUntil = Date.now() + 400;
                 if (e.target.tagName && (e.target.tagName.toLowerCase() === 'input' || e.target.tagName.toLowerCase() === 'a')) return;
-                const block = e.target.closest('p, h1, h2, h3, h4, h5, h6, blockquote, li, pre');
+                let block = e.target.closest('p, h1, h2, h3, h4, h5, h6, blockquote, li, pre');
                 if (!block || block.classList.contains('md-block-editing') || block.querySelector('.md-block-textarea')) return;
-                e.stopPropagation();
 
+                // 若双击的是 blockquote 内的段落，将目标升级为整个 blockquote，以保留完整引用标记与多行内容
+                const parentBq = block.closest('blockquote');
+                if (parentBq && container.contains(parentBq)) {
+                    block = parentBq;
+                }
+
+                e.stopPropagation();
                 startEditMarkdownBlock(block);
             });
         };
 
         function startEditMarkdownBlock(block) {
+            window.__suppressOutsideClickUntil = Date.now() + 400;
+            // 在开启当前块编辑前，自动关闭并保存其他已在编辑状态的输入框
+            window.closeAllActiveInPlaceEditors(true, block);
+
             block.__ORIGINAL_HTML__ = block.innerHTML;
             block.classList.add('md-block-editing');
 
+            const container = document.getElementById('md-container');
             let lineIdx = -1;
             let targetEl = block;
-            while (targetEl && targetEl !== document.body) {
+            while (targetEl && targetEl !== document.body && targetEl !== container) {
                 let id = targetEl.id || '';
                 let m = id.match(/^pragma-line-(\d+)$/);
                 if (m) { lineIdx = parseInt(m[1], 10); break; }
-                let a = targetEl.querySelector && targetEl.querySelector('a[id^=""pragma-line-""]');
+                let a = targetEl.querySelector && targetEl.querySelector('[id^=""pragma-line-""]');
                 if (a) {
                     let am = a.id.match(/^pragma-line-(\d+)$/);
                     if (am) { lineIdx = parseInt(am[1], 10); break; }
@@ -4805,10 +6350,37 @@ namespace NppPlugin.OmniView.Core
                 targetEl = targetEl.parentElement;
             }
 
+            let startLine = lineIdx;
+            let endLine = lineIdx;
             let initialText = '';
-            if (lineIdx >= 0 && window.__RAW_DOC_CONTENT__) {
+
+            if (startLine >= 0 && window.__RAW_DOC_CONTENT__) {
                 const lines = window.__RAW_DOC_CONTENT__.split('\n');
-                initialText = lines[lineIdx] || block.innerText.trim();
+
+                // 查找紧跟在当前 block 之后的下一个 pragma 锚点行号（排除当前 block 内部的元素）
+                let nextStartLine = lines.length;
+                if (container) {
+                    const allPragmas = container.querySelectorAll('[id^=""pragma-line-""]');
+                    for (let i = 0; i < allPragmas.length; i++) {
+                        const el = allPragmas[i];
+                        if (block.contains(el)) continue;
+                        const pm = el.id.match(/^pragma-line-(\d+)$/);
+                        if (pm) {
+                            const l = parseInt(pm[1], 10);
+                            if (l > startLine && l < nextStartLine) {
+                                nextStartLine = l;
+                            }
+                        }
+                    }
+                }
+
+                // 确定 endLine：剔除区间末尾可能存在的空行，但不得低于 startLine
+                endLine = nextStartLine - 1;
+                while (endLine > startLine && (lines[endLine] === undefined || !lines[endLine].trim())) {
+                    endLine--;
+                }
+
+                initialText = lines.slice(startLine, endLine + 1).join('\n');
             } else {
                 let tag = block.tagName.toLowerCase();
                 let prefix = '';
@@ -4820,7 +6392,7 @@ namespace NppPlugin.OmniView.Core
                 else if (tag === 'h6') prefix = '###### ';
                 else if (tag === 'blockquote') prefix = '> ';
                 else if (tag === 'li') prefix = '- ';
-                initialText = prefix + block.innerText.trim();
+                initialText = prefix + (block.innerText || '').trim();
             }
 
             block.innerHTML = `
@@ -4829,6 +6401,7 @@ namespace NppPlugin.OmniView.Core
                     <div class='md-block-editor-bar'>
                         <span class='md-block-tip'>Ctrl+Enter 保存并编译 · Esc 取消</span>
                         <div class='md-block-actions'>
+                            ${startLine >= 0 ? `<button class='btn-pill btn-mini' type='button' id='btn-md-block-goto' title='在 Notepad++ 中定位并直接编辑此段落源码'>跳转源码</button>` : ''}
                             <button class='btn-pill btn-mini primary' type='button' id='btn-md-block-save'>保存</button>
                             <button class='btn-pill btn-mini' type='button' id='btn-md-block-cancel'>取消</button>
                         </div>
@@ -4838,25 +6411,43 @@ namespace NppPlugin.OmniView.Core
 
             const ta = block.querySelector('.md-block-textarea');
             ta.value = initialText;
-            ta.style.height = Math.max(ta.scrollHeight, 46) + 'px';
-            setTimeout(() => { ta.focus(); ta.selectionStart = ta.selectionEnd = ta.value.length; }, 20);
+
+            // 根据行数计算初始高度，支持多行完整呈现（解决多行只露单行的问题）
+            const lineCount = (initialText.match(/\n/g) || []).length + 1;
+            const initHeight = Math.max(lineCount * 22 + 20, 56);
+            ta.style.height = initHeight + 'px';
+
+            setTimeout(() => {
+                ta.focus();
+                ta.selectionStart = ta.selectionEnd = ta.value.length;
+                ta.style.height = Math.max(ta.scrollHeight, initHeight) + 'px';
+            }, 20);
 
             ta.addEventListener('input', () => {
                 ta.style.height = 'auto';
                 ta.style.height = Math.max(ta.scrollHeight, 46) + 'px';
             });
 
+            let finished = false;
             function commit() {
+                if (finished) return;
+                finished = true;
+                delete block.__FINISH_EDIT__;
                 const newText = ta.value;
                 block.classList.remove('md-block-editing');
-                if (lineIdx >= 0 && window.__RAW_DOC_CONTENT__) {
+                if (newText === initialText) {
+                    block.innerHTML = block.__ORIGINAL_HTML__;
+                    return;
+                }
+                if (startLine >= 0 && window.__RAW_DOC_CONTENT__) {
                     const lines = window.__RAW_DOC_CONTENT__.split('\n');
-                    lines[lineIdx] = newText;
+                    const newLines = newText.split('\n');
+                    lines.splice(startLine, endLine - startLine + 1, ...newLines);
                     const fullText = lines.join('\n');
                     window.__RAW_DOC_CONTENT__ = fullText;
                     window.omniTriggerChange(fullText, false);
                 } else if (window.__RAW_DOC_CONTENT__) {
-                    const oldTrimmed = block.innerText.trim();
+                    const oldTrimmed = block.innerText ? block.innerText.trim() : '';
                     if (oldTrimmed) {
                         const updated = window.__RAW_DOC_CONTENT__.replace(oldTrimmed, newText);
                         window.__RAW_DOC_CONTENT__ = updated;
@@ -4867,9 +6458,17 @@ namespace NppPlugin.OmniView.Core
             }
 
             function cancel() {
+                if (finished) return;
+                finished = true;
+                delete block.__FINISH_EDIT__;
                 block.classList.remove('md-block-editing');
                 block.innerHTML = block.__ORIGINAL_HTML__;
             }
+
+            block.__FINISH_EDIT__ = function(shouldSave) {
+                if (shouldSave) commit();
+                else cancel();
+            };
 
             ta.addEventListener('keydown', (evt) => {
                 if (evt.ctrlKey && evt.key === 'Enter') { evt.preventDefault(); commit(); }
@@ -4878,8 +6477,15 @@ namespace NppPlugin.OmniView.Core
 
             const btnSave = block.querySelector('#btn-md-block-save');
             const btnCancel = block.querySelector('#btn-md-block-cancel');
+            const btnGoto = block.querySelector('#btn-md-block-goto');
             if (btnSave) btnSave.onclick = commit;
             if (btnCancel) btnCancel.onclick = cancel;
+            if (btnGoto) {
+                btnGoto.onclick = () => {
+                    cancel();
+                    postAct('JUMP_TO_LINE:' + startLine);
+                };
+            }
         }
 
         let activeSvgShape = null;
@@ -4894,6 +6500,7 @@ namespace NppPlugin.OmniView.Core
                 if (!textNode) return;
                 e.preventDefault();
                 e.stopPropagation();
+                window.__suppressOutsideClickUntil = Date.now() + 400;
 
                 // 立即解除平移锁定，杜绝画布跟随鼠标晃动
                 svgPanning = false;
@@ -4902,9 +6509,8 @@ namespace NppPlugin.OmniView.Core
                 const vp = document.getElementById('svg-viewport');
                 if (vp) vp.style.cursor = 'grab';
 
-                // 清理可能已存在的其他输入框，防止重叠抖动
-                const existingInput = document.querySelector('.svg-inline-text-editor');
-                if (existingInput) existingInput.remove();
+                // 立即关闭所有活跃的就地编辑输入框
+                window.closeAllActiveInPlaceEditors(true);
 
                 const rect = textNode.getBoundingClientRect();
                 const currentText = textNode.textContent.trim();
@@ -4919,6 +6525,7 @@ namespace NppPlugin.OmniView.Core
                 input.style.width = Math.max(Math.round(rect.width) + 24, 90) + 'px';
                 input.style.fontFamily = computed.fontFamily;
                 input.style.fontSize = computed.fontSize;
+                input.__COMMIT__ = commit;
 
                 let committed = false;
                 function commit() {
@@ -5045,6 +6652,10 @@ namespace NppPlugin.OmniView.Core
                 const target = e.target.closest('.node, .cluster, .actor, .label, g[id^=""flowchart-""], .title-text, .sectionTitle');
                 if (!target) return;
                 e.stopPropagation();
+                window.__suppressOutsideClickUntil = Date.now() + 400;
+
+                // 立即关闭所有活跃的就地编辑输入框
+                window.closeAllActiveInPlaceEditors(true);
 
                 // 优先以用户实际点击的文本元素为准进行坐标计算与文本获取
                 const clickedTextEl = e.target.closest('text, tspan, .nodeLabel, span, p') || target.querySelector('.nodeLabel, text, span') || target;
@@ -5060,6 +6671,7 @@ namespace NppPlugin.OmniView.Core
                 const input = document.createElement('input');
                 input.className = 'mermaid-node-editor';
                 input.value = currentText;
+                input.__COMMIT__ = commit;
                 
                 // 居中或紧贴在点击文本处
                 const posX = Math.max(10, rect.left);
@@ -5457,6 +7069,8 @@ namespace NppPlugin.OmniView.Core
         }
 
         window.startEditJsonVal = function(spanEl) {
+            window.__suppressOutsideClickUntil = Date.now() + 400;
+            window.closeAllActiveInPlaceEditors(true, spanEl);
             if (spanEl.querySelector('input')) return;
             const pathStr = spanEl.getAttribute('data-path');
             if (!pathStr) return;
@@ -5482,18 +7096,28 @@ namespace NppPlugin.OmniView.Core
                 else if (rawVal === 'false') parsedVal = false;
                 else if (!isNaN(Number(rawVal)) && rawVal !== '') parsedVal = Number(rawVal);
 
+                if (parsedVal === currentVal) {
+                    initJsonOrYamlView();
+                    return;
+                }
+
                 setJsonValByPath(path, parsedVal);
                 syncJsonOrYamlAfterEdit();
             }
 
+            input.__COMMIT__ = commit;
+            input.__CANCEL__ = function() { committed = true; initJsonOrYamlView(); };
+
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') { e.preventDefault(); commit(); }
-                if (e.key === 'Escape') { e.preventDefault(); committed = true; initJsonOrYamlView(); }
+                if (e.key === 'Escape') { e.preventDefault(); input.__CANCEL__(); }
             });
             input.addEventListener('blur', commit);
         };
 
         window.startEditJsonKey = function(spanEl) {
+            window.__suppressOutsideClickUntil = Date.now() + 400;
+            window.closeAllActiveInPlaceEditors(true, spanEl);
             if (spanEl.querySelector('input')) return;
             const parentPathStr = spanEl.getAttribute('data-parent-path');
             const oldKey = spanEl.getAttribute('data-key');
@@ -5531,9 +7155,12 @@ namespace NppPlugin.OmniView.Core
                 initJsonOrYamlView();
             }
 
+            input.__COMMIT__ = commit;
+            input.__CANCEL__ = function() { committed = true; initJsonOrYamlView(); };
+
             input.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') { e.preventDefault(); commit(); }
-                if (e.key === 'Escape') { e.preventDefault(); committed = true; initJsonOrYamlView(); }
+                if (e.key === 'Escape') { e.preventDefault(); input.__CANCEL__(); }
             });
             input.addEventListener('blur', commit);
         };
@@ -5638,12 +7265,68 @@ namespace NppPlugin.OmniView.Core
             }
         }
 
-        // ==================== XML INTERACTIVE TREE VIEW LOGIC ====================
+        // ==================== XML 全景交互引擎 (结构树、表格透视、标准转 JSON) ====================
+        window.__XML_VIEW_MODE__ = 'tree'; // 'tree' | 'grid' | 'json'
+        window.__XML_ATTR_MODE__ = 'badge';  // 'badge' | 'inline' | 'hide'
+        window.__XML_SHOW_CLOSING_TAGS__ = false;
+        window.__ACTIVE_XML_XPATH__ = '';
+        window.__ACTIVE_XML_PATH__ = [];
+        window.__XML_SEARCH_MATCHES__ = [];
+        window.__XML_SEARCH_INDEX__ = -1;
+        window.__XML_GRID_SORT_COL__ = -1;
+        window.__XML_GRID_SORT_ASC__ = true;
+        window.__XML_PARSED_JSON__ = null;
+        window.__XML_JSON_MODE__ = 'code';
+        window.__XML_FORMATTED_JSON_STR__ = '';
+
+        // 切换 XML 子视图模式 (结构树 / 表格透视 / 转 JSON)
+        window.switchXmlSubView = function(mode) {
+            window.__XML_VIEW_MODE__ = mode;
+            ['tree', 'grid', 'json'].forEach(m => {
+                const btn = document.getElementById(`btn-xml-mode-${m}`);
+                if (btn) btn.classList.toggle('active', m === mode);
+            });
+
+            const treeWrap = document.getElementById('xml-tree-wrap');
+            const gridWrap = document.getElementById('xml-grid-wrap');
+            const jsonWrap = document.getElementById('xml-json-wrap');
+
+            if (mode === 'tree') {
+                if (treeWrap) treeWrap.style.display = 'block';
+                if (gridWrap) gridWrap.style.display = 'none';
+                if (jsonWrap) jsonWrap.style.display = 'none';
+                initXmlView();
+            } else if (mode === 'grid') {
+                if (treeWrap) treeWrap.style.display = 'none';
+                if (gridWrap) gridWrap.style.display = 'block';
+                if (jsonWrap) jsonWrap.style.display = 'none';
+                initXmlGridView();
+            } else if (mode === 'json') {
+                if (treeWrap) treeWrap.style.display = 'none';
+                if (gridWrap) gridWrap.style.display = 'none';
+                if (jsonWrap) jsonWrap.style.display = 'block';
+                initXmlJsonView();
+            }
+        };
+
+        window.toggleXmlClosingTags = function() {
+            window.__XML_SHOW_CLOSING_TAGS__ = !window.__XML_SHOW_CLOSING_TAGS__;
+            const root = document.getElementById('xml-root');
+            const txt = document.getElementById('txt-closing-tags-mode');
+            if (root) {
+                root.classList.toggle('show-closing-tags', window.__XML_SHOW_CLOSING_TAGS__);
+            }
+            if (txt) {
+                txt.textContent = window.__XML_SHOW_CLOSING_TAGS__ ? '隐藏闭合行' : '显示闭合行';
+            }
+            showToast(window.__XML_SHOW_CLOSING_TAGS__ ? '已展示闭合标签行' : '已采用现代紧凑排版');
+        };
+
         function initXmlView(targetFlashPath) {
             const root = document.getElementById('xml-root');
             if (!root || window.__RAW_XML__ === undefined) return;
 
-            // 记住当前已展开节点的路径
+            // 记录当前已展开节点的路径集合
             const openPaths = new Set();
             root.querySelectorAll('details.xml-node[open]').forEach(d => {
                 const p = d.getAttribute('data-xml-path');
@@ -5668,9 +7351,15 @@ namespace NppPlugin.OmniView.Core
                     prologHtml = `<div class='xml-prolog'>${escapeHtml(prologMatch[0])}</div>`;
                 }
 
-                const treeHtml = buildXmlNodeHtml(xmlDoc.documentElement, [], '/' + xmlDoc.documentElement.tagName, openPaths, hasPrevState);
+                root.classList.toggle('show-closing-tags', !!window.__XML_SHOW_CLOSING_TAGS__);
+                const rootTag = xmlDoc.documentElement ? xmlDoc.documentElement.tagName : 'root';
+                const initialXpath = '/' + rootTag;
+                const treeHtml = buildXmlNodeHtml(xmlDoc.documentElement, [], initialXpath, 0, openPaths, hasPrevState);
                 root.innerHTML = prologHtml + treeHtml;
-                updateXmlNodeCount();
+                updateXmlStats();
+
+                // 初始化默认面包屑
+                updateXmlBreadcrumb(initialXpath, []);
 
                 if (targetFlashPath) {
                     const targetEl = root.querySelector(`[data-xml-path='${targetFlashPath}']`);
@@ -5715,18 +7404,18 @@ namespace NppPlugin.OmniView.Core
             return curr;
         }
 
-        function buildXmlNodeHtml(node, pathArr, xpathStr, openPaths, hasPrevState) {
+        function buildXmlNodeHtml(node, pathArr, xpathStr, depth, openPaths, hasPrevState) {
             if (!node) return '';
             const pathStr = pathArr.join(',');
 
             if (node.nodeType === Node.COMMENT_NODE) {
-                return `<div class='xml-comment-row' data-xml-path='${pathStr}'>
+                return `<div class='xml-comment-row' data-xml-path='${pathStr}' data-xpath='${escapeHtml(xpathStr)}' data-depth='${depth}' onclick='selectXmlNode(this, event)'>
                     <span class='xml-spacer'></span>
                     <span class='xml-comment' ondblclick='startEditXmlComment(this, event)' title='双击就地修改注释'>&lt;!-- ${escapeHtml(node.nodeValue)} --&gt;</span>
                 </div>`;
             }
             if (node.nodeType === Node.CDATA_SECTION_NODE) {
-                return `<div class='xml-cdata-row' data-xml-path='${pathStr}'>
+                return `<div class='xml-cdata-row' data-xml-path='${pathStr}' data-xpath='${escapeHtml(xpathStr)}' data-depth='${depth}' onclick='selectXmlNode(this, event)'>
                     <span class='xml-spacer'></span>
                     <span class='xml-cdata-badge'>CDATA</span>
                     <span class='xml-cdata-content' ondblclick='startEditXmlCData(this, event)' title='双击就地修改 CDATA 内容'>${escapeHtml(node.nodeValue)}</span>
@@ -5735,7 +7424,7 @@ namespace NppPlugin.OmniView.Core
             if (node.nodeType === Node.TEXT_NODE) {
                 const txt = node.nodeValue.trim();
                 if (!txt) return '';
-                return `<div class='xml-leaf-row' data-xml-path='${pathStr}'>
+                return `<div class='xml-leaf-row' data-xml-path='${pathStr}' data-xpath='${escapeHtml(xpathStr)}' data-depth='${depth}' onclick='selectXmlNode(this, event)'>
                     <span class='xml-spacer'></span>
                     <span class='xml-text-val' ondblclick='startEditXmlText(this, event)' title='双击就地修改文本'>${escapeHtml(txt)}</span>
                 </div>`;
@@ -5762,13 +7451,15 @@ namespace NppPlugin.OmniView.Core
 
             const children = getXmlMeaningfulChildren(node);
 
-            // 自闭合叶子节点 (无任何子节点)
+            // 自闭合叶子节点 (无任何子元素/文本)
             if (children.length === 0) {
-                return `<div class='xml-leaf-row' data-xml-path='${pathStr}'>
+                const tagDisplay = `<span class='xml-bracket'>&lt;</span><span class='xml-tag-name' ondblclick='startEditXmlTagName(this, event)' title='双击修改标签名'>${escapeHtml(tag)}</span>${attrHtml}<span class='xml-bracket'> /&gt;</span>`;
+
+                return `<div class='xml-leaf-row' data-xml-path='${pathStr}' data-xpath='${escapeHtml(xpathStr)}' data-depth='${depth}' onclick='selectXmlNode(this, event)'>
                     <span class='xml-spacer'></span>
-                    <span class='xml-bracket'>&lt;</span><span class='xml-tag-name' ondblclick='startEditXmlTagName(this, event)' title='双击修改标签名'>${escapeHtml(tag)}</span>${attrHtml}<span class='xml-bracket'> /&gt;</span>
+                    <span class='xml-line-content'>${tagDisplay}</span>
                     <div class='xml-row-tools'>
-                        <button class='xml-tool-btn' data-xpath='${escapeHtml(xpathStr)}' onclick='copyXmlXPath(this, event)' title='复制当前节点 XPath 路径'>XPath</button>
+                        <button class='xml-tool-btn' data-xpath='${escapeHtml(xpathStr)}' onclick='copyXmlXPath(this, event)' title='复制此节点 XPath 路径'>XPath</button>
                         <button class='xml-tool-btn' data-path='${pathStr}' onclick='copyXmlNodeXml(this, event)' title='复制此节点完整 XML'>复制</button>
                     </div>
                 </div>`;
@@ -5783,19 +7474,19 @@ namespace NppPlugin.OmniView.Core
                     ? `<span class='xml-cdata-badge' style='margin-left:4px;'>CDATA</span><span class='xml-cdata-content' data-xml-path='${childPathStr}' ondblclick='startEditXmlCData(this, event)' title='双击修改 CDATA 内容'>${escapeHtml(onlyChild.nodeValue)}</span>`
                     : `<span class='xml-text-val' data-xml-path='${childPathStr}' ondblclick='startEditXmlText(this, event)' title='双击就地修改文本'>${escapeHtml(onlyChild.nodeValue.trim())}</span>`;
 
-                return `<div class='xml-leaf-row' data-xml-path='${pathStr}'>
+                const contentDisplay = `<span class='xml-bracket'>&lt;</span><span class='xml-tag-name' ondblclick='startEditXmlTagName(this, event)' title='双击修改标签名'>${escapeHtml(tag)}</span>${attrHtml}<span class='xml-bracket'>&gt;</span>${valHtml}<span class='xml-bracket'>&lt;/</span><span class='xml-tag-name' ondblclick='startEditXmlTagName(this, event)' title='双击修改标签名'>${escapeHtml(tag)}</span><span class='xml-bracket'>&gt;</span>`;
+
+                return `<div class='xml-leaf-row' data-xml-path='${pathStr}' data-xpath='${escapeHtml(xpathStr)}' data-depth='${depth}' onclick='selectXmlNode(this, event)'>
                     <span class='xml-spacer'></span>
-                    <span class='xml-bracket'>&lt;</span><span class='xml-tag-name' ondblclick='startEditXmlTagName(this, event)' title='双击修改标签名'>${escapeHtml(tag)}</span>${attrHtml}<span class='xml-bracket'>&gt;</span>` +
-                    valHtml +
-                    `<span class='xml-bracket'>&lt;/</span><span class='xml-tag-name' ondblclick='startEditXmlTagName(this, event)' title='双击修改标签名'>${escapeHtml(tag)}</span><span class='xml-bracket'>&gt;</span>
+                    <span class='xml-line-content'>${contentDisplay}</span>
                     <div class='xml-row-tools'>
-                        <button class='xml-tool-btn' data-xpath='${escapeHtml(xpathStr)}' onclick='copyXmlXPath(this, event)' title='复制当前节点 XPath 路径'>XPath</button>
+                        <button class='xml-tool-btn' data-xpath='${escapeHtml(xpathStr)}' onclick='copyXmlXPath(this, event)' title='复制此节点 XPath 路径'>XPath</button>
                         <button class='xml-tool-btn' data-path='${pathStr}' onclick='copyXmlNodeXml(this, event)' title='复制此节点完整 XML'>复制</button>
                     </div>
                 </div>`;
             }
 
-            // 复合父节点：展开/折叠结构
+            // 复合节点：具有子节点
             const isOpen = hasPrevState ? openPaths.has(pathStr) : true;
             let childrenHtml = '';
             const tagCounts = {};
@@ -5807,17 +7498,18 @@ namespace NppPlugin.OmniView.Core
                     tagCounts[cTag] = (tagCounts[cTag] || 0) + 1;
                     subXpath = `${xpathStr}/${cTag}[${tagCounts[cTag]}]`;
                 }
-                childrenHtml += buildXmlNodeHtml(ch, pathArr.concat([i]), subXpath, openPaths, hasPrevState);
+                childrenHtml += buildXmlNodeHtml(ch, pathArr.concat([i]), subXpath, depth + 1, openPaths, hasPrevState);
             }
 
-            return `<details class='xml-node' data-xml-path='${pathStr}' ${isOpen ? 'open' : ''}>
-                <summary class='xml-summary'>
+            const headDisplay = `<span class='xml-bracket'>&lt;</span><span class='xml-tag-name' ondblclick='startEditXmlTagName(this, event)' title='双击修改标签名'>${escapeHtml(tag)}</span>${attrHtml}<span class='xml-bracket xml-open-bracket'>&gt;</span><span class='xml-collapsed-preview'><span class='xml-ellipsis'>...</span><span class='xml-bracket'>&lt;/</span><span class='xml-tag-name'>${escapeHtml(tag)}</span><span class='xml-bracket'>&gt;</span></span>`;
+
+            return `<details class='xml-node' data-xml-path='${pathStr}' data-xpath='${escapeHtml(xpathStr)}' data-depth='${depth}' ${isOpen ? 'open' : ''}>
+                <summary class='xml-summary' onclick='selectXmlNode(this, event)'>
                     <svg class='xml-chevron' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2'><polyline points='9 18 15 12 9 6'></polyline></svg>
-                    <span class='xml-bracket'>&lt;</span><span class='xml-tag-name' ondblclick='startEditXmlTagName(this, event)' title='双击修改标签名'>${escapeHtml(tag)}</span>${attrHtml}<span class='xml-bracket xml-open-bracket'>&gt;</span>
-                    <span class='xml-collapsed-preview'><span class='xml-bracket'>&gt;</span><span class='xml-ellipsis'>...</span><span class='xml-bracket'>&lt;/</span><span class='xml-tag-name'>${escapeHtml(tag)}</span><span class='xml-bracket'>&gt;</span></span>
+                    <span class='xml-line-content'>${headDisplay}</span>
                     <span class='xml-badge'>${children.length} 个子项</span>
                     <div class='xml-row-tools'>
-                        <button class='xml-tool-btn' data-xpath='${escapeHtml(xpathStr)}' onclick='copyXmlXPath(this, event)' title='复制当前节点 XPath 路径'>XPath</button>
+                        <button class='xml-tool-btn' data-xpath='${escapeHtml(xpathStr)}' onclick='copyXmlXPath(this, event)' title='复制此节点 XPath 路径'>XPath</button>
                         <button class='xml-tool-btn' data-path='${pathStr}' onclick='copyXmlNodeXml(this, event)' title='复制此节点完整 XML'>复制</button>
                     </div>
                 </summary>
@@ -5826,14 +7518,538 @@ namespace NppPlugin.OmniView.Core
                 </div>
                 <div class='xml-close-tag-row'>
                     <span class='xml-spacer'></span>
-                    <span class='xml-bracket'>&lt;/</span><span class='xml-tag-name' ondblclick='startEditXmlTagName(this, event)' title='双击修改标签名'>${escapeHtml(tag)}</span><span class='xml-bracket'>&gt;</span>
+                    <span class='xml-line-content'><span class='xml-bracket'>&lt;/</span><span class='xml-tag-name' ondblclick='startEditXmlTagName(this, event)' title='双击修改标签名'>${escapeHtml(tag)}</span><span class='xml-bracket'>&gt;</span></span>
                 </div>
             </details>`;
         }
 
-        // ==================== 就地双击编辑引擎 (In-Place XML Editors) ====================
+        // ==================== 节点选中与实时 XPath 面包屑系统 ====================
+        window.selectXmlNode = function(el, e) {
+            if (e && e.target && (e.target.tagName === 'INPUT' || e.target.closest('.xml-row-tools'))) {
+                return;
+            }
+            const row = el.closest('[data-xpath]') || el;
+            if (!row) return;
+
+            const root = document.getElementById('xml-root');
+            if (root) {
+                root.querySelectorAll('.xml-node-focused').forEach(n => n.classList.remove('xml-node-focused'));
+            }
+            row.classList.add('xml-node-focused');
+            window.__ACTIVE_XML_NODE__ = row;
+
+            const xpath = row.getAttribute('data-xpath') || '';
+            const pathAttr = row.getAttribute('data-xml-path') || '';
+            window.__ACTIVE_XML_XPATH__ = xpath;
+            window.__ACTIVE_XML_PATH__ = pathAttr ? pathAttr.split(',').map(Number) : [];
+
+            updateXmlBreadcrumb(xpath, window.__ACTIVE_XML_PATH__);
+        };
+
+        function updateXmlBreadcrumb(xpath, pathArr) {
+            const breadcrumbEl = document.getElementById('xml-breadcrumbs');
+            if (!breadcrumbEl) return;
+
+            if (!xpath || xpath === '/') {
+                breadcrumbEl.innerHTML = `<span class='crumb-item active' onclick='jumpToXmlPath([])'>/ (根节点)</span>`;
+                return;
+            }
+
+            const parts = xpath.split('/').filter(p => p.length > 0);
+            let html = `<span class='crumb-item' onclick='jumpToXmlPath([])'>/</span>`;
+            let accumPath = '';
+
+            parts.forEach((p, idx) => {
+                accumPath += '/' + p;
+                const isLast = idx === parts.length - 1;
+                const activeCls = isLast ? ' active' : '';
+                const clickTarget = accumPath;
+                html += `<span class='crumb-sep'>›</span><span class='crumb-item${activeCls}' title='点击定位到此节点' data-xpath='${escapeHtml(clickTarget)}' onclick='jumpToCrumbNode(this)'>${escapeHtml(p)}</span>`;
+            });
+
+            breadcrumbEl.innerHTML = html;
+        }
+
+        window.jumpToCrumbNode = function(el) {
+            const xp = el.getAttribute('data-xpath');
+            if (xp) jumpToXPath(xp);
+        };
+
+        window.jumpToXPath = function(targetXpath) {
+            const root = document.getElementById('xml-root');
+            if (!root) return;
+            const targetEl = root.querySelector(`[data-xpath='${targetXpath}']`);
+            if (targetEl) {
+                let p = targetEl.parentElement;
+                while (p && p.id !== 'xml-root') {
+                    if (p.tagName && p.tagName.toLowerCase() === 'details') {
+                        p.open = true;
+                    }
+                    p = p.parentElement;
+                }
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                selectXmlNode(targetEl);
+                targetEl.classList.add('xml-just-edited');
+                setTimeout(() => targetEl.classList.remove('xml-just-edited'), 1500);
+            }
+        };
+
+        window.jumpToXmlPath = function(pathArr) {
+            const root = document.getElementById('xml-root');
+            if (!root) return;
+            const pathStr = pathArr.join(',');
+            const targetEl = root.querySelector(`[data-xml-path='${pathStr}']`) || root.firstElementChild;
+            if (targetEl) {
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                selectXmlNode(targetEl);
+            }
+        };
+
+        window.copyActiveXPath = function() {
+            const xpath = window.__ACTIVE_XML_XPATH__ || '/';
+            copyTextToClipboard(xpath);
+            showToast('已复制 XPath: ' + xpath);
+        };
+
+        window.copyActiveNodeXml = function() {
+            if (window.__ACTIVE_XML_NODE__) {
+                const pathAttr = window.__ACTIVE_XML_NODE__.getAttribute('data-xml-path');
+                if (pathAttr !== null) {
+                    copyXmlNodeXml(pathAttr);
+                    return;
+                }
+            }
+            if (window.__RAW_XML__) {
+                copyFormattedXml();
+            }
+        };
+
+        // ==================== 折叠层级控制系统 ====================
+        window.expandXmlToDepth = function(targetDepth) {
+            const root = document.getElementById('xml-root');
+            if (!root) return;
+            root.querySelectorAll('details.xml-node').forEach(d => {
+                const depthAttr = d.getAttribute('data-depth');
+                const dDepth = depthAttr !== null ? parseInt(depthAttr, 10) : 0;
+                d.open = dDepth < targetDepth;
+            });
+            showToast(`已展开至第 ${targetDepth} 层级`);
+        };
+
+        window.expandAllXml = function() {
+            const root = document.getElementById('xml-root');
+            if (root) {
+                root.querySelectorAll('details.xml-node').forEach(d => d.open = true);
+                showToast('已全部展开 XML 节点');
+            }
+        };
+
+        window.collapseAllXml = function() {
+            const root = document.getElementById('xml-root');
+            if (root) {
+                root.querySelectorAll('details.xml-node').forEach(d => d.open = false);
+                showToast('已全部折叠 XML 节点');
+            }
+        };
+
+        window.toggleXmlAttributes = function() {
+            const root = document.getElementById('xml-root');
+            const txt = document.getElementById('txt-attr-mode');
+            if (!root) return;
+
+            if (root.classList.contains('badge-attrs')) {
+                root.classList.remove('badge-attrs');
+                root.classList.add('hide-attrs');
+                if (txt) txt.textContent = '隐藏属性';
+                showToast('已隐藏属性列表');
+            } else if (root.classList.contains('hide-attrs')) {
+                root.classList.remove('hide-attrs');
+                if (txt) txt.textContent = '内联属性';
+                showToast('已切换至紧凑内联属性');
+            } else {
+                root.classList.add('badge-attrs');
+                if (txt) txt.textContent = '属性徽章';
+                showToast('已开启属性独立徽章视图');
+            }
+        };
+
+        // ==================== 模式 2: 表格透视视图引擎 (XML Data Grid) ====================
+        function initXmlGridView() {
+            if (!window.__XML_DOC__) {
+                try {
+                    window.__XML_DOC__ = (new DOMParser()).parseFromString(window.__RAW_XML__ || '', 'text/xml');
+                } catch { return; }
+            }
+            const doc = window.__XML_DOC__;
+            if (!doc || !doc.documentElement) return;
+
+            // 统计所有元素及其出现频次和子节点特征
+            const tagCounts = {};
+            const tagHasComplex = {};
+            function scanTags(node) {
+                if (node.nodeType === Node.ELEMENT_NODE) {
+                    const t = node.tagName;
+                    tagCounts[t] = (tagCounts[t] || 0) + 1;
+                    if ((node.attributes && node.attributes.length > 0) || node.children.length > 0) {
+                        tagHasComplex[t] = true;
+                    }
+                    for (let i = 0; i < node.childNodes.length; i++) {
+                        scanTags(node.childNodes[i]);
+                    }
+                }
+            }
+            scanTags(doc.documentElement);
+
+            const selector = document.getElementById('xml-grid-selector');
+            const content = document.getElementById('xml-grid-content');
+            if (!selector || !content) return;
+            selector.innerHTML = '';
+
+            const sortedTags = Object.keys(tagCounts).sort((a, b) => {
+                const countA = tagCounts[a], countB = tagCounts[b];
+                const complexA = tagHasComplex[a] ? 1 : 0, complexB = tagHasComplex[b] ? 1 : 0;
+                if (complexB !== complexA) return complexB - complexA;
+                return countB - countA;
+            });
+
+            if (sortedTags.length === 0) {
+                content.innerHTML = '<div class=\'xml-empty-card\'><div class=\'xml-empty-title\'>未检测到可结构化的 XML 实体</div><div class=\'xml-empty-desc\'>当前文档可能为空或格式异常，请在【结构树】中查看原始结构。</div></div>';
+                return;
+            }
+
+            sortedTags.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                const count = tagCounts[t];
+                const isRepeated = count > 1 ? ' [重复集合]' : '';
+                opt.textContent = `<${t}> (${count} 条记录)${isRepeated}`;
+                selector.appendChild(opt);
+            });
+
+            // 优先选择出现频次最高且频次 >= 2 的业务实体；若无重复实体，选中第一个
+            const bestTarget = sortedTags.find(t => tagCounts[t] >= 2 && tagHasComplex[t]) || sortedTags[0];
+            selector.value = bestTarget;
+
+            const maxFreq = tagCounts[sortedTags[0]];
+            const banner = document.getElementById('xml-grid-hint-banner');
+            if (banner) {
+                if (maxFreq <= 1) {
+                    banner.innerHTML = '<span class=\'hint-icon\'>[提示]</span><span class=\'hint-text\'>当前文档为单例配置层级（如 POM/配置单），暂无重复实体集合；已为您提取选中节点字段，可点击上方下拉框切换。</span>';
+                } else {
+                    banner.innerHTML = '<span class=\'hint-icon\'>[透视]</span><span class=\'hint-text\'>表格透视已自动识别重复实体集合：点击表头可升降序排序，双击单元格快速复制内容，支持一键导出到 Excel/WPS。</span>';
+                }
+            }
+
+            renderXmlSelectedGrid(bestTarget);
+        }
+
+        window.renderXmlSelectedGrid = function(tagName) {
+            const content = document.getElementById('xml-grid-content');
+            const stats = document.getElementById('xml-grid-stats');
+            if (!content || !window.__XML_DOC__) return;
+
+            const elements = Array.from(window.__XML_DOC__.getElementsByTagName(tagName));
+            if (elements.length === 0) {
+                content.innerHTML = '<div class=\'xml-empty-card\'><div class=\'xml-empty-title\'>该实体暂无数据项</div><div class=\'xml-empty-desc\'>可尝试在上方下拉框中切换其他实体标签。</div></div>';
+                return;
+            }
+
+            // 动态收集所有列名 (Attributes + 纯文本子元素)
+            const attrSet = new Set();
+            const childSet = new Set();
+
+            elements.forEach(el => {
+                if (el.attributes) {
+                    for (let i = 0; i < el.attributes.length; i++) {
+                        attrSet.add('@' + el.attributes[i].name);
+                    }
+                }
+                const ch = getXmlMeaningfulChildren(el);
+                ch.forEach(c => {
+                    if (c.nodeType === Node.ELEMENT_NODE) {
+                        const subCh = getXmlMeaningfulChildren(c);
+                        if (subCh.length <= 1) {
+                            childSet.add(c.tagName);
+                        }
+                    }
+                });
+            });
+
+            const headers = Array.from(attrSet).concat(Array.from(childSet));
+            if (headers.length === 0) headers.push('文本内容');
+
+            // 提取数据行
+            let rows = elements.map(el => {
+                return headers.map(h => {
+                    if (h.startsWith('@')) {
+                        const aName = h.slice(1);
+                        return el.getAttribute(aName) || '';
+                    } else if (h === '文本内容') {
+                        return el.textContent.trim();
+                    } else {
+                        const targetCh = Array.from(el.children).find(c => c.tagName === h);
+                        return targetCh ? targetCh.textContent.trim() : '';
+                    }
+                });
+            });
+
+            // 排序处理
+            if (window.__XML_GRID_SORT_COL__ >= 0 && window.__XML_GRID_SORT_COL__ < headers.length) {
+                const colIdx = window.__XML_GRID_SORT_COL__;
+                const asc = window.__XML_GRID_SORT_ASC__;
+                rows.sort((a, b) => {
+                    const va = (a[colIdx] || '').trim(), vb = (b[colIdx] || '').trim();
+                    const na = parseFloat(va), nb = parseFloat(vb);
+                    if (!isNaN(na) && !isNaN(nb)) return asc ? na - nb : nb - na;
+                    return asc ? va.localeCompare(vb) : vb.localeCompare(va);
+                });
+            }
+
+            window.__CURRENT_XML_GRID__ = { headers, rows, tagName };
+            if (stats) stats.textContent = `共 ${rows.length} 条记录 · ${headers.length} 个字段`;
+
+            let tableHtml = `<table class='xml-grid-table'><thead><tr><th class='xml-grid-num-col'>#</th>`;
+            headers.forEach((h, idx) => {
+                const sortArrow = window.__XML_GRID_SORT_COL__ === idx ? (window.__XML_GRID_SORT_ASC__ ? ' ▲' : ' ▼') : '';
+                tableHtml += `<th onclick='sortXmlGrid(${idx})'>${escapeHtml(h)}${sortArrow}</th>`;
+            });
+            tableHtml += `</tr></thead><tbody>`;
+
+            rows.forEach((r, rIdx) => {
+                tableHtml += `<tr><td class='xml-grid-num-col'>${rIdx + 1}</td>`;
+                r.forEach(val => {
+                    tableHtml += `<td title='${escapeHtml(val)}' ondblclick='copyGridCellText(this)'>${escapeHtml(val)}</td>`;
+                });
+                tableHtml += `</tr>`;
+            });
+            tableHtml += `</tbody></table>`;
+            content.innerHTML = tableHtml;
+        };
+
+        window.copyGridCellText = function(tdEl) {
+            if (!tdEl) return;
+            const text = tdEl.textContent || '';
+            copyTextToClipboard(text);
+            showToast('已复制单元格内容');
+        };
+
+        window.sortXmlGrid = function(colIdx) {
+            if (window.__XML_GRID_SORT_COL__ === colIdx) {
+                window.__XML_GRID_SORT_ASC__ = !window.__XML_GRID_SORT_ASC__;
+            } else {
+                window.__XML_GRID_SORT_COL__ = colIdx;
+                window.__XML_GRID_SORT_ASC__ = true;
+            }
+            if (window.__CURRENT_XML_GRID__) {
+                renderXmlSelectedGrid(window.__CURRENT_XML_GRID__.tagName);
+            }
+        };
+
+        window.exportXmlGridAsCsv = function() {
+            if (!window.__CURRENT_XML_GRID__) return;
+            const { headers, rows } = window.__CURRENT_XML_GRID__;
+            const lines = [];
+            lines.push(headers.join('\t'));
+            rows.forEach(r => lines.push(r.map(v => v.replace(/\t/g, ' ')).join('\t')));
+            const tsv = lines.join('\r\n');
+            copyTextToClipboard(tsv);
+            showToast('已复制表格数据 (制表符格式，可直接粘贴至 Excel/WPS)');
+        };
+
+        // ==================== 模式 3: 标准 XML 转 JSON 引擎 ====================
+        window.switchXmlJsonSubMode = function(subMode) {
+            window.__XML_JSON_MODE__ = subMode;
+            const btnCode = document.getElementById('btn-json-view-code');
+            const btnTree = document.getElementById('btn-json-view-tree');
+            const codeWrap = document.getElementById('xml-json-code-view');
+            const treeWrap = document.getElementById('xml-json-tree-view');
+
+            if (btnCode) btnCode.classList.toggle('active', subMode === 'code');
+            if (btnTree) btnTree.classList.toggle('active', subMode === 'tree');
+            if (codeWrap) codeWrap.style.display = subMode === 'code' ? 'block' : 'none';
+            if (treeWrap) treeWrap.style.display = subMode === 'tree' ? 'block' : 'none';
+        };
+
+        function initXmlJsonView() {
+            if (!window.__XML_DOC__) {
+                try {
+                    window.__XML_DOC__ = (new DOMParser()).parseFromString(window.__RAW_XML__ || '', 'text/xml');
+                } catch (err) {
+                    const codeEl = document.getElementById('xml-json-code-content');
+                    if (codeEl) codeEl.textContent = 'XML 解析失败：' + err.message;
+                    return;
+                }
+            }
+
+            try {
+                const jsonObj = convertXmlToJson(window.__XML_DOC__.documentElement);
+                window.__XML_PARSED_JSON__ = jsonObj;
+                const formattedJson = JSON.stringify(jsonObj, null, 2);
+                window.__XML_FORMATTED_JSON_STR__ = formattedJson;
+
+                // 统计信息
+                const lineCount = formattedJson.split('\n').length;
+                const charCount = formattedJson.length;
+                const sizeText = charCount < 1024 ? (charCount + ' 字符') : ((charCount / 1024).toFixed(1) + ' KB');
+                const statsEl = document.getElementById('xml-json-stats');
+                if (statsEl) statsEl.textContent = `共 ${lineCount} 行 · ${sizeText}`;
+
+                // 渲染代码高亮视图
+                const codeEl = document.getElementById('xml-json-code-content');
+                if (codeEl) {
+                    codeEl.innerHTML = syntaxHighlightJson(formattedJson);
+                }
+
+                // 渲染树状交互视图
+                const treeContainer = document.getElementById('xml-json-tree-view');
+                if (treeContainer) {
+                    treeContainer.innerHTML = renderJsonViewerHtml(jsonObj, 0);
+                }
+            } catch (ex) {
+                const codeEl = document.getElementById('xml-json-code-content');
+                if (codeEl) codeEl.textContent = 'XML 转 JSON 失败：' + ex.message;
+            }
+        }
+
+        function convertXmlToJson(rootNode) {
+            if (!rootNode) return null;
+
+            function parseVal(str) {
+                if (typeof str !== 'string') return str;
+                const s = str.trim();
+                if (s === 'true') return true;
+                if (s === 'false') return false;
+                if (s === 'null') return null;
+                if (/^-?\d+(\.\d+)?$/.test(s) && !/^0\d+/.test(s)) {
+                    const n = Number(s);
+                    if (!isNaN(n)) return n;
+                }
+                return str;
+            }
+
+            function parseNode(el) {
+                if (el.nodeType === Node.TEXT_NODE) {
+                    return parseVal(el.nodeValue.trim());
+                }
+                if (el.nodeType === Node.CDATA_SECTION_NODE) {
+                    return el.nodeValue;
+                }
+
+                const obj = {};
+                let hasAttrs = false;
+
+                if (el.attributes && el.attributes.length > 0) {
+                    for (let i = 0; i < el.attributes.length; i++) {
+                        const attr = el.attributes[i];
+                        obj['@' + attr.name] = parseVal(attr.value);
+                        hasAttrs = true;
+                    }
+                }
+
+                const children = getXmlMeaningfulChildren(el);
+                if (children.length === 1 && (children[0].nodeType === Node.TEXT_NODE || children[0].nodeType === Node.CDATA_SECTION_NODE)) {
+                    const rawVal = children[0].nodeValue.trim();
+                    const val = parseVal(rawVal);
+                    if (!hasAttrs) {
+                        return val;
+                    } else {
+                        obj['value'] = val;
+                        return obj;
+                    }
+                }
+
+                children.forEach(ch => {
+                    if (ch.nodeType === Node.ELEMENT_NODE) {
+                        const tag = ch.tagName;
+                        const childVal = parseNode(ch);
+                        if (obj[tag] === undefined) {
+                            obj[tag] = childVal;
+                        } else if (Array.isArray(obj[tag])) {
+                            obj[tag].push(childVal);
+                        } else {
+                            obj[tag] = [obj[tag], childVal];
+                        }
+                    }
+                });
+
+                if (Object.keys(obj).length === 0) {
+                    return '';
+                }
+                return obj;
+            }
+
+            const rootTag = rootNode.tagName || 'root';
+            const rootData = parseNode(rootNode);
+            const result = {};
+            result[rootTag] = rootData;
+            return result;
+        }
+
+        function syntaxHighlightJson(json) {
+            if (!json) return '';
+            json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return json.replace(/(\x22(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\x22\\])*\x22(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                let cls = 'json-num';
+                if (/^\x22/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'json-key';
+                    } else {
+                        cls = 'json-str';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-bool';
+                } else if (/null/.test(match)) {
+                    cls = 'json-null';
+                }
+                return '<span class=\'' + cls + '\'>' + match + '</span>';
+            });
+        }
+
+        function renderJsonViewerHtml(val, depth) {
+            if (val === null) return `<span class='json-null'>null</span>`;
+            if (typeof val === 'boolean') return `<span class='json-bool'>${val}</span>`;
+            if (typeof val === 'number') return `<span class='json-num'>${val}</span>`;
+            if (typeof val === 'string') return `<span class='json-str'>&quot;${escapeHtml(val)}&quot;</span>`;
+
+            if (Array.isArray(val)) {
+                if (val.length === 0) return `<span>[]</span>`;
+                let itemsHtml = '';
+                val.forEach((item, idx) => {
+                    itemsHtml += `<div class='json-tree-row'><span class='json-key'>[${idx}]</span>: ${renderJsonViewerHtml(item, depth + 1)}</div>`;
+                });
+                return `<details class='json-details' ${depth < 2 ? 'open' : ''}><summary class='json-summary'><span class='json-bracket'>[</span> <span class='stats-tag'>${val.length} 项</span> <span class='json-bracket'>]</span></summary><div class='json-nested'>${itemsHtml}</div></details>`;
+            }
+
+            if (typeof val === 'object') {
+                const keys = Object.keys(val);
+                if (keys.length === 0) return `<span>{}</span>`;
+                let propsHtml = '';
+                keys.forEach(k => {
+                    const isAttr = k.startsWith('@');
+                    const keyCls = isAttr ? 'json-key xml-attr-name' : 'json-key';
+                    propsHtml += `<div class='json-tree-row'><span class='${keyCls}'>&quot;${escapeHtml(k)}&quot;</span>: ${renderJsonViewerHtml(val[k], depth + 1)}</div>`;
+                });
+                return `<details class='json-details' ${depth < 2 ? 'open' : ''}><summary class='json-summary'><span class='json-bracket'>{</span> <span class='stats-tag'>${keys.length} 属性</span> <span class='json-bracket'>}</span></summary><div class='json-nested'>${propsHtml}</div></details>`;
+            }
+            return escapeHtml(String(val));
+        }
+
+        window.copyXmlAsJson = function() {
+            if (window.__XML_FORMATTED_JSON_STR__) {
+                copyTextToClipboard(window.__XML_FORMATTED_JSON_STR__);
+                showToast('已复制标准格式化 JSON 文本');
+            } else if (window.__XML_PARSED_JSON__) {
+                const jsonText = JSON.stringify(window.__XML_PARSED_JSON__, null, 2);
+                copyTextToClipboard(jsonText);
+                showToast('已复制标准格式化 JSON 文本');
+            }
+        };
+
+        // ==================== 就地编辑与双向同步逻辑 (In-Place XML Editors) ====================
         window.startEditXmlAttrVal = function(spanEl, e) {
             if (e) { e.preventDefault(); e.stopPropagation(); }
+            window.__suppressOutsideClickUntil = Date.now() + 400;
+            window.closeAllActiveInPlaceEditors(true, spanEl);
             if (spanEl.querySelector('input')) return;
             const rowEl = spanEl.closest('[data-xml-path]');
             const attrEl = spanEl.closest('.xml-attr');
@@ -5861,22 +8077,27 @@ namespace NppPlugin.OmniView.Core
                     if (targetNode && targetNode.setAttribute) {
                         targetNode.setAttribute(attrName, newVal);
                         syncXmlAfterEdit(rowEl.getAttribute('data-xml-path'));
-                        showToast(`已更新属性 [${attrName}]`);
+                        showToast('已更新属性 [' + attrName + ']');
                         return;
                     }
                 }
                 spanEl.textContent = oldVal;
             }
 
+            input.__COMMIT__ = commit;
+            input.__CANCEL__ = function() { committed = true; spanEl.textContent = oldVal; };
+
             input.addEventListener('keydown', (evt) => {
                 if (evt.key === 'Enter') { evt.preventDefault(); commit(); }
-                if (evt.key === 'Escape') { evt.preventDefault(); committed = true; spanEl.textContent = oldVal; }
+                if (evt.key === 'Escape') { evt.preventDefault(); input.__CANCEL__(); }
             });
             input.addEventListener('blur', commit);
         };
 
         window.startEditXmlAttrName = function(spanEl, e) {
             if (e) { e.preventDefault(); e.stopPropagation(); }
+            window.__suppressOutsideClickUntil = Date.now() + 400;
+            window.closeAllActiveInPlaceEditors(true, spanEl);
             if (spanEl.querySelector('input')) return;
             const rowEl = spanEl.closest('[data-xml-path]');
             const attrEl = spanEl.closest('.xml-attr');
@@ -5905,22 +8126,27 @@ namespace NppPlugin.OmniView.Core
                         targetNode.removeAttribute(oldAttrName);
                         targetNode.setAttribute(newAttrName, val);
                         syncXmlAfterEdit(rowEl.getAttribute('data-xml-path'));
-                        showToast(`已将属性名重命名为 [${newAttrName}]`);
+                        showToast('已重命名属性为 [' + newAttrName + ']');
                         return;
                     }
                 }
                 spanEl.textContent = oldAttrName;
             }
 
+            input.__COMMIT__ = commit;
+            input.__CANCEL__ = function() { committed = true; spanEl.textContent = oldAttrName; };
+
             input.addEventListener('keydown', (evt) => {
                 if (evt.key === 'Enter') { evt.preventDefault(); commit(); }
-                if (evt.key === 'Escape') { evt.preventDefault(); committed = true; spanEl.textContent = oldAttrName; }
+                if (evt.key === 'Escape') { evt.preventDefault(); input.__CANCEL__(); }
             });
             input.addEventListener('blur', commit);
         };
 
         window.startEditXmlText = function(spanEl, e) {
             if (e) { e.preventDefault(); e.stopPropagation(); }
+            window.__suppressOutsideClickUntil = Date.now() + 400;
+            window.closeAllActiveInPlaceEditors(true, spanEl);
             if (spanEl.querySelector('input')) return;
             const pathAttr = spanEl.getAttribute('data-xml-path') || spanEl.closest('[data-xml-path]')?.getAttribute('data-xml-path');
             if (!pathAttr) return;
@@ -5957,15 +8183,20 @@ namespace NppPlugin.OmniView.Core
                 spanEl.textContent = oldText;
             }
 
+            input.__COMMIT__ = commit;
+            input.__CANCEL__ = function() { committed = true; spanEl.textContent = oldText; };
+
             input.addEventListener('keydown', (evt) => {
                 if (evt.key === 'Enter') { evt.preventDefault(); commit(); }
-                if (evt.key === 'Escape') { evt.preventDefault(); committed = true; spanEl.textContent = oldText; }
+                if (evt.key === 'Escape') { evt.preventDefault(); input.__CANCEL__(); }
             });
             input.addEventListener('blur', commit);
         };
 
         window.startEditXmlCData = function(spanEl, e) {
             if (e) { e.preventDefault(); e.stopPropagation(); }
+            window.__suppressOutsideClickUntil = Date.now() + 400;
+            window.closeAllActiveInPlaceEditors(true, spanEl);
             if (spanEl.querySelector('input')) return;
             const pathAttr = spanEl.getAttribute('data-xml-path') || spanEl.closest('[data-xml-path]')?.getAttribute('data-xml-path');
             if (!pathAttr) return;
@@ -5998,15 +8229,20 @@ namespace NppPlugin.OmniView.Core
                 spanEl.textContent = oldText;
             }
 
+            input.__COMMIT__ = commit;
+            input.__CANCEL__ = function() { committed = true; spanEl.textContent = oldText; };
+
             input.addEventListener('keydown', (evt) => {
                 if (evt.key === 'Enter') { evt.preventDefault(); commit(); }
-                if (evt.key === 'Escape') { evt.preventDefault(); committed = true; spanEl.textContent = oldText; }
+                if (evt.key === 'Escape') { evt.preventDefault(); input.__CANCEL__(); }
             });
             input.addEventListener('blur', commit);
         };
 
         window.startEditXmlComment = function(spanEl, e) {
             if (e) { e.preventDefault(); e.stopPropagation(); }
+            window.__suppressOutsideClickUntil = Date.now() + 400;
+            window.closeAllActiveInPlaceEditors(true, spanEl);
             if (spanEl.querySelector('input')) return;
             const rowEl = spanEl.closest('[data-xml-path]');
             if (!rowEl) return;
@@ -6036,18 +8272,23 @@ namespace NppPlugin.OmniView.Core
                         return;
                     }
                 }
-                spanEl.textContent = `<!-- ${rawComment} -->`;
+                spanEl.textContent = '<!-- ' + rawComment + ' -->';
             }
+
+            input.__COMMIT__ = commit;
+            input.__CANCEL__ = function() { committed = true; spanEl.textContent = '<!-- ' + rawComment + ' -->'; };
 
             input.addEventListener('keydown', (evt) => {
                 if (evt.key === 'Enter') { evt.preventDefault(); commit(); }
-                if (evt.key === 'Escape') { evt.preventDefault(); committed = true; spanEl.textContent = `<!-- ${rawComment} -->`; }
+                if (evt.key === 'Escape') { evt.preventDefault(); input.__CANCEL__(); }
             });
             input.addEventListener('blur', commit);
         };
 
         window.startEditXmlTagName = function(spanEl, e) {
             if (e) { e.preventDefault(); e.stopPropagation(); }
+            window.__suppressOutsideClickUntil = Date.now() + 400;
+            window.closeAllActiveInPlaceEditors(true, spanEl);
             if (spanEl.querySelector('input')) return;
             const rowEl = spanEl.closest('[data-xml-path]');
             if (!rowEl) return;
@@ -6068,16 +8309,14 @@ namespace NppPlugin.OmniView.Core
                 if (committed) return;
                 committed = true;
                 const newTag = input.value.trim();
-                if (newTag && newTag !== oldTag && /^[a-zA-Z_:][a-zA-Z0-9.\-_:]*$/.test(newTag)) {
+                if (newTag && newTag !== oldTag && /^[a-zA-Z_:][a-zA-Z0-9.\\-_:]*$/.test(newTag)) {
                     const targetNode = getXmlNodeByPath(pathArr);
                     if (targetNode && targetNode.nodeType === Node.ELEMENT_NODE) {
                         const newElement = window.__XML_DOC__.createElement(newTag);
-                        // 复制属性
                         for (let i = 0; i < targetNode.attributes.length; i++) {
                             const attr = targetNode.attributes[i];
                             newElement.setAttribute(attr.name, attr.value);
                         }
-                        // 移动子节点
                         while (targetNode.firstChild) {
                             newElement.appendChild(targetNode.firstChild);
                         }
@@ -6085,16 +8324,19 @@ namespace NppPlugin.OmniView.Core
                             targetNode.parentNode.replaceChild(newElement, targetNode);
                         }
                         syncXmlAfterEdit(rowEl.getAttribute('data-xml-path'));
-                        showToast(`已将标签重命名为 <${newTag}>`);
+                        showToast('已重命名标签为 <' + newTag + '>');
                         return;
                     }
                 }
                 spanEl.textContent = oldTag;
             }
 
+            input.__COMMIT__ = commit;
+            input.__CANCEL__ = function() { committed = true; spanEl.textContent = oldTag; };
+
             input.addEventListener('keydown', (evt) => {
                 if (evt.key === 'Enter') { evt.preventDefault(); commit(); }
-                if (evt.key === 'Escape') { evt.preventDefault(); committed = true; spanEl.textContent = oldTag; }
+                if (evt.key === 'Escape') { evt.preventDefault(); input.__CANCEL__(); }
             });
             input.addEventListener('blur', commit);
         };
@@ -6154,51 +8396,6 @@ namespace NppPlugin.OmniView.Core
             }
         };
 
-        window.toggleXmlAttributes = function() {
-            const root = document.getElementById('xml-root');
-            const btn = document.getElementById('btn-toggle-types');
-            if (!root) return;
-            if (root.classList.contains('badge-attrs')) {
-                root.classList.remove('badge-attrs');
-                root.classList.add('hide-attrs');
-                if (btn) {
-                    btn.classList.remove('active');
-                    btn.innerHTML = `${ICON_TAG_SVG}<span>隐藏属性</span>`;
-                }
-                showToast('已隐藏属性列表');
-            } else if (root.classList.contains('hide-attrs')) {
-                root.classList.remove('hide-attrs');
-                if (btn) {
-                    btn.classList.remove('active');
-                    btn.innerHTML = `${ICON_TAG_SVG}<span>内联属性</span>`;
-                }
-                showToast('已切换至标准内联属性');
-            } else {
-                root.classList.add('badge-attrs');
-                if (btn) {
-                    btn.classList.add('active');
-                    btn.innerHTML = `${ICON_TAG_SVG}<span>属性徽章</span>`;
-                }
-                showToast('已开启属性独立徽章视图');
-            }
-        };
-
-        window.expandAllXml = function() {
-            const root = document.getElementById('xml-root');
-            if (root) {
-                root.querySelectorAll('details.xml-node').forEach(d => d.open = true);
-                showToast('已全部展开 XML 节点');
-            }
-        };
-
-        window.collapseAllXml = function() {
-            const root = document.getElementById('xml-root');
-            if (root) {
-                root.querySelectorAll('details.xml-node').forEach(d => d.open = false);
-                showToast('已全部折叠 XML 节点');
-            }
-        };
-
         window.copyFormattedXml = function() {
             if (window.__RAW_XML__ !== undefined) {
                 const formatted = formatXmlString(window.__RAW_XML__);
@@ -6207,27 +8404,37 @@ namespace NppPlugin.OmniView.Core
             }
         };
 
+        // ==================== 搜索与键盘高亮跳转导航 ====================
         window.filterXmlTree = function(query) {
             const q = (query || '').toLowerCase().trim();
             const root = document.getElementById('xml-root');
+            const clearBtn = document.getElementById('xml-clear-search');
+            if (clearBtn) clearBtn.style.display = q ? 'inline-flex' : 'none';
             if (!root) return;
+
+            window.__XML_SEARCH_MATCHES__ = [];
+            window.__XML_SEARCH_INDEX__ = -1;
+
             if (!q) {
-                root.querySelectorAll('.xml-node, .xml-leaf-row, .xml-cdata-row, .xml-comment-row').forEach(r => r.style.display = '');
-                updateXmlNodeCount();
+                root.querySelectorAll('.xml-node, .xml-leaf-row, .xml-cdata-row, .xml-comment-row').forEach(r => {
+                    r.style.display = '';
+                    r.classList.remove('xml-match-focused');
+                });
+                updateXmlStats();
                 return;
             }
-            let matches = 0;
+
             root.querySelectorAll('.xml-leaf-row, .xml-cdata-row, .xml-comment-row').forEach(r => r.style.display = 'none');
             root.querySelectorAll('details.xml-node').forEach(d => d.style.display = 'none');
 
             root.querySelectorAll('.xml-summary, .xml-leaf-row, .xml-cdata-row, .xml-comment-row').forEach(el => {
                 const txt = el.textContent.toLowerCase();
                 if (txt.includes(q)) {
-                    matches++;
+                    window.__XML_SEARCH_MATCHES__.push(el);
                     el.style.display = '';
                     let p = el.parentElement;
                     while (p && p.id !== 'xml-root') {
-                        if (p.tagName.toLowerCase() === 'details') {
+                        if (p.tagName && p.tagName.toLowerCase() === 'details') {
                             p.style.display = '';
                             p.open = true;
                         }
@@ -6235,16 +8442,58 @@ namespace NppPlugin.OmniView.Core
                     }
                 }
             });
+
             const stats = document.getElementById('xml-stats');
-            if (stats) stats.textContent = `匹配 ${matches} 项`;
+            if (stats) {
+                stats.textContent = `匹配 ${window.__XML_SEARCH_MATCHES__.length} 项`;
+            }
+
+            if (window.__XML_SEARCH_MATCHES__.length > 0) {
+                focusXmlSearchMatch(0);
+            }
         };
 
-        function updateXmlNodeCount() {
+        window.handleXmlSearchKey = function(evt) {
+            if (evt.key === 'Escape') {
+                clearXmlFilter();
+            } else if (evt.key === 'Enter') {
+                evt.preventDefault();
+                if (window.__XML_SEARCH_MATCHES__.length === 0) return;
+                const nextIdx = evt.shiftKey
+                    ? (window.__XML_SEARCH_INDEX__ - 1 + window.__XML_SEARCH_MATCHES__.length) % window.__XML_SEARCH_MATCHES__.length
+                    : (window.__XML_SEARCH_INDEX__ + 1) % window.__XML_SEARCH_MATCHES__.length;
+                focusXmlSearchMatch(nextIdx);
+            }
+        };
+
+        function focusXmlSearchMatch(idx) {
+            if (idx < 0 || idx >= window.__XML_SEARCH_MATCHES__.length) return;
+            window.__XML_SEARCH_INDEX__ = idx;
+            window.__XML_SEARCH_MATCHES__.forEach((el, i) => {
+                el.classList.toggle('xml-match-focused', i === idx);
+            });
+            const targetEl = window.__XML_SEARCH_MATCHES__[idx];
+            targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            selectXmlNode(targetEl);
+
+            const stats = document.getElementById('xml-stats');
+            if (stats) {
+                stats.textContent = `第 ${idx + 1} / ${window.__XML_SEARCH_MATCHES__.length} 项`;
+            }
+        }
+
+        window.clearXmlFilter = function() {
+            const input = document.getElementById('xml-filter');
+            if (input) input.value = '';
+            filterXmlTree('');
+        };
+
+        function updateXmlStats() {
             const root = document.getElementById('xml-root');
             const stats = document.getElementById('xml-stats');
             if (root && stats) {
-                const totalNodes = root.querySelectorAll('.xml-tag-name').length;
-                stats.textContent = `共 ${Math.ceil(totalNodes / 2)} 个节点`;
+                const totalNodes = root.querySelectorAll('.xml-leaf-row, details.xml-node').length;
+                stats.textContent = `共 ${totalNodes} 个节点`;
             }
         }
 
@@ -6329,6 +8578,8 @@ namespace NppPlugin.OmniView.Core
                 evt.preventDefault();
                 evt.stopPropagation();
             }
+            window.__suppressOutsideClickUntil = Date.now() + 400;
+            window.closeAllActiveInPlaceEditors(true, tdEl);
             if (!tdEl || tdEl.classList.contains('csv-cell-in-editing')) return;
             if (window.__isEditing) {
                 tdEl.focus();
@@ -6353,6 +8604,7 @@ namespace NppPlugin.OmniView.Core
             function finish(save) {
                 if (committed) return;
                 committed = true;
+                delete tdEl.__FINISH__;
                 tdEl.contentEditable = 'false';
                 tdEl.classList.remove('csv-cell-in-editing');
                 tdEl.removeEventListener('blur', onBlur);
@@ -6373,6 +8625,8 @@ namespace NppPlugin.OmniView.Core
                     }
                 }
             }
+
+            tdEl.__FINISH__ = finish;
 
             function onBlur() {
                 finish(true);
@@ -7113,18 +9367,49 @@ namespace NppPlugin.OmniView.Core
             }
         }
 
+        window.renderMathBlocks = function() {
+            if (typeof katex === 'undefined') return;
+
+            // 1. 支持 ```math, ```katex, ```latex 围栏代码块自动转换为独立公式容器
+            document.querySelectorAll('pre > code.language-math, pre > code.language-katex, pre > code.language-latex').forEach(c => {
+                if (c.getAttribute('data-math-converted')) return;
+                c.setAttribute('data-math-converted', 'true');
+                const d = document.createElement('div');
+                d.className = 'math';
+                d.textContent = '\\[\n' + c.textContent.trim() + '\n\\]';
+                const w = c.closest('.code-block-wrapper') || c.parentElement;
+                w.replaceWith(d);
+            });
+
+            // 2. 遍历渲染页面中的所有数学公式容器
+            document.querySelectorAll('.math').forEach(n => {
+                if (n.getAttribute('data-katex-rendered')) return;
+                let tex = n.textContent.trim();
+                const isBlk = n.tagName.toLowerCase() === 'div' || tex.startsWith('\\[');
+                if (tex.startsWith('\\[') && tex.endsWith('\\]')) {
+                    tex = tex.slice(2, -2).trim();
+                } else if (tex.startsWith('\\(') && tex.endsWith('\\)')) {
+                    tex = tex.slice(2, -2).trim();
+                } else if (tex.startsWith('\\(') || tex.startsWith('\\[')) {
+                    tex = tex.slice(2, -2).trim();
+                }
+                try {
+                    katex.render(tex, n, {
+                        displayMode: isBlk,
+                        throwOnError: false,
+                        strict: false,
+                        trust: true
+                    });
+                    n.setAttribute('data-katex-rendered', 'true');
+                } catch(e) {}
+            });
+        };
+
         function renderEnhancements() {
             enhanceCodeBlocks();
             enhanceTaskLists();
             enhanceMarkdownAlerts();
-            if (typeof katex !== 'undefined') {
-                document.querySelectorAll('.math').forEach(n => {
-                    let tex = n.textContent.trim();
-                    const isBlk = n.tagName.toLowerCase() === 'div' || tex.startsWith('\\[');
-                    if (tex.startsWith('\\(') || tex.startsWith('\\[')) tex = tex.slice(2, -2);
-                    try { katex.render(tex, n, { displayMode: isBlk, throwOnError: false }); } catch(e){}
-                });
-            }
+            renderMathBlocks();
             if (typeof mermaid !== 'undefined') {
                 try {
                     mermaid.initialize({
@@ -7620,10 +9905,8 @@ namespace NppPlugin.OmniView.Core
                 }
             });
 
-            try {
-                localStorage.setItem('npp_omniview_' + target + '_bg_color', color);
-                localStorage.setItem('npp_omniview_' + target + '_bg_name', bgName);
-            } catch(e){}
+            SafeStorage.setItem('npp_omniview_' + target + '_bg_color', color);
+            SafeStorage.setItem('npp_omniview_' + target + '_bg_name', bgName);
 
             if (target === 'mermaid') {
                 const newIsDark = isDarkColor(color);
@@ -7833,7 +10116,7 @@ namespace NppPlugin.OmniView.Core
                 iframe.srcdoc = window.__RAW_HTML__;
             }
             try {
-                const saved = localStorage.getItem('npp_omniview_html_viewport');
+                const saved = SafeStorage.getItem('npp_omniview_html_viewport');
                 if (saved) {
                     const cfg = JSON.parse(saved);
                     if (cfg && typeof cfg.w === 'number') {
@@ -7897,16 +10180,14 @@ namespace NppPlugin.OmniView.Core
         };
 
         function saveHtmlViewportPreferences() {
-            try {
-                localStorage.setItem('npp_omniview_html_viewport', JSON.stringify({
-                    w: htmlTargetW,
-                    h: htmlTargetH,
-                    name: htmlResName,
-                    isMobile: htmlIsMobile,
-                    orient: htmlOrientation,
-                    autoFit: htmlAutoFit
-                }));
-            } catch(e) {}
+            SafeStorage.setItem('npp_omniview_html_viewport', JSON.stringify({
+                w: htmlTargetW,
+                h: htmlTargetH,
+                name: htmlResName,
+                isMobile: htmlIsMobile,
+                orient: htmlOrientation,
+                autoFit: htmlAutoFit
+            }));
         }
 
         function applyHtmlViewportStyles() {
@@ -8195,7 +10476,14 @@ namespace NppPlugin.OmniView.Core
             window.__RAW_XML__ = rawXmlStr;
             window.__RAW_DOC_CONTENT__ = rawXmlStr;
             if (window.__isEditing) return;
-            initXmlView();
+            window.__XML_DOC__ = null;
+            if (window.__XML_VIEW_MODE__ === 'grid') {
+                initXmlGridView();
+            } else if (window.__XML_VIEW_MODE__ === 'json') {
+                initXmlJsonView();
+            } else {
+                initXmlView();
+            }
             if (statusText) setBadgeStatus(statusText);
             window.finishLoader(statusText);
         };
@@ -8237,33 +10525,189 @@ namespace NppPlugin.OmniView.Core
             copyTextToClipboard(codeToCopy);
         };
 
+        // ==================== BI-DIRECTIONAL SCROLL SYNCHRONIZATION (双向同步滚动锁定) ====================
+        window.__SYNC_SCROLL_ENABLED__ = (SafeStorage.getItem('npp_omniview_sync_scroll') !== 'false');
+
+        window.toggleSyncScroll = function(force) {
+            const nextState = (typeof force === 'boolean') ? force : !window.__SYNC_SCROLL_ENABLED__;
+            window.__SYNC_SCROLL_ENABLED__ = nextState;
+            SafeStorage.setItem('npp_omniview_sync_scroll', nextState ? 'true' : 'false');
+
+            const btn = document.getElementById('btn-sync-scroll');
+            if (btn) {
+                if (nextState) {
+                    btn.classList.add('active');
+                    btn.title = '双向同步滚动：已开启 (编辑区与预览窗口实时锁定同一位置，点击可暂停)';
+                    if (window.showToast) showToast('已开启双向同步滚动并实时对齐');
+                    // 开启瞬间立即驱动一次位置同步锁定
+                    postAct('TRIGGER_SYNC_SCROLL');
+                } else {
+                    btn.classList.remove('active');
+                    btn.title = '双向同步滚动：已暂停 (点击重新开启)';
+                    if (window.showToast) showToast('已暂停双向同步滚动');
+                }
+            }
+        };
+
+        function initSyncScrollButtonState() {
+            const btn = document.getElementById('btn-sync-scroll');
+            if (btn) {
+                if (window.__SYNC_SCROLL_ENABLED__) {
+                    btn.classList.add('active');
+                    btn.title = '双向同步滚动：已开启 (编辑区与预览窗口实时锁定同一位置，点击可暂停)';
+                    // 页面载入时若开启，即时触发一次同步锁定
+                    setTimeout(() => { postAct('TRIGGER_SYNC_SCROLL'); }, 60);
+                } else {
+                    btn.classList.remove('active');
+                    btn.title = '双向同步滚动：已暂停 (点击重新开启)';
+                }
+            }
+        }
+
+        let isNppDrivenScrolling = false;
+        let nppScrollTimer = null;
+        let lastSentNppLine = -1;
+        let previewScrollThrottle = null;
+
+        function getAnchorScrollTop(el) {
+            const target = (el.tagName && el.tagName.toLowerCase() === 'a' && el.parentElement) ? el.parentElement : el;
+            const rect = target.getBoundingClientRect();
+            return rect.top + window.scrollY;
+        }
+
+        // 1. 正向同步：Notepad++ 滚动驱动 -> 预览视口高精度锚点插值定位
         window.syncScrollToLine = function(targetLine, totalLines) {
-            if (targetLine <= 1) {
+            if (!window.__SYNC_SCROLL_ENABLED__) return;
+
+            isNppDrivenScrolling = true;
+            if (nppScrollTimer) clearTimeout(nppScrollTimer);
+            nppScrollTimer = setTimeout(() => { isNppDrivenScrolling = false; }, 260);
+
+            if (targetLine <= 0) {
                 window.scrollTo({ top: 0, behavior: 'auto' });
                 return;
             }
-            const codeEl = document.querySelector(`.code-gutter[data-line='${targetLine}']`);
+
+            const md = document.getElementById('md-container');
+            if (md) {
+                const anchors = Array.from(document.querySelectorAll('[id^=pragma-line-]'));
+                if (anchors.length > 0) {
+                    let prev = null;
+                    let next = null;
+
+                    for (let i = 0; i < anchors.length; i++) {
+                        const el = anchors[i];
+                        const lineNum = parseInt(el.id.replace('pragma-line-', ''), 10);
+                        if (isNaN(lineNum)) continue;
+
+                        const topY = getAnchorScrollTop(el);
+
+                        if (lineNum <= targetLine) {
+                            if (!prev || lineNum >= prev.line) {
+                                prev = { line: lineNum, top: topY };
+                            }
+                        }
+                        if (lineNum >= targetLine) {
+                            if (!next || lineNum <= next.line) {
+                                next = { line: lineNum, top: topY };
+                            }
+                        }
+                    }
+
+                    // 视口顶栏高度偏移：避免内容被固定的顶部主工具栏与副工具栏遮挡 (约 88px)
+                    const topOffset = 88;
+
+                    if (prev && next) {
+                        let targetY;
+                        if (prev.line === next.line) {
+                            targetY = prev.top;
+                        } else {
+                            const ratio = (targetLine - prev.line) / (next.line - prev.line);
+                            targetY = prev.top + ratio * (next.top - prev.top);
+                        }
+                        window.scrollTo({ top: Math.max(0, targetY - topOffset), behavior: 'auto' });
+                        return;
+                    } else if (prev) {
+                        window.scrollTo({ top: Math.max(0, prev.top - topOffset), behavior: 'auto' });
+                        return;
+                    }
+                }
+            }
+
+            // 源码模式代码行匹配
+            const codeEl = document.querySelector(`.code-gutter[data-line='${targetLine + 1}']`);
             if (codeEl) {
                 codeEl.scrollIntoView({ behavior: 'auto', block: 'center' });
                 return;
             }
-            const md = document.getElementById('md-container');
-            if (md) {
-                let targetEl = null;
-                for (let l = targetLine; l >= Math.max(1, targetLine - 15); l--) {
-                    targetEl = md.querySelector(`[data-sourcepos^='${l}:']`);
-                    if (targetEl) break;
-                }
-                if (targetEl) {
-                    targetEl.scrollIntoView({ behavior: 'auto', block: 'center' });
-                    return;
-                }
-            }
-            const ratio = targetLine / Math.max(1, totalLines);
+
+            // 兜底百分比线性映射
+            const ratio = Math.max(0, Math.min(1, targetLine / Math.max(1, totalLines)));
             window.scrollTo(0, (document.documentElement.scrollHeight - window.innerHeight) * ratio);
         };
 
-        // ==================== AUTO-HIDING FLOATING SCROLLBAR ====================
+        // 2. 反向同步：预览视口滚动驱动 -> 计算对应行号并通知 Notepad++ 锁定同一位置
+        function calculateAndSendNppScroll() {
+            if (isNppDrivenScrolling || !window.__SYNC_SCROLL_ENABLED__) return;
+
+            const md = document.getElementById('md-container');
+            if (!md) return;
+
+            if (window.scrollY <= 10) {
+                if (lastSentNppLine !== 0) {
+                    lastSentNppLine = 0;
+                    postAct('SYNC_SCROLL_TO_NPP:0');
+                }
+                return;
+            }
+
+            const currentY = window.scrollY + 88;
+            const anchors = Array.from(document.querySelectorAll('[id^=pragma-line-]'));
+            if (anchors.length === 0) return;
+
+            let prev = null;
+            let next = null;
+
+            for (let i = 0; i < anchors.length; i++) {
+                const el = anchors[i];
+                const lineNum = parseInt(el.id.replace('pragma-line-', ''), 10);
+                if (isNaN(lineNum)) continue;
+
+                const topY = getAnchorScrollTop(el);
+
+                if (topY <= currentY) {
+                    if (!prev || topY >= prev.top) {
+                        prev = { line: lineNum, top: topY };
+                    }
+                }
+                if (topY >= currentY) {
+                    if (!next || topY <= next.top) {
+                        next = { line: lineNum, top: topY };
+                    }
+                }
+            }
+
+            let targetDocLine = 0;
+            if (prev && next) {
+                if (next.top <= prev.top) {
+                    targetDocLine = prev.line;
+                } else {
+                    const ratio = (currentY - prev.top) / (next.top - prev.top);
+                    targetDocLine = Math.round(prev.line + ratio * (next.line - prev.line));
+                }
+            } else if (prev) {
+                targetDocLine = prev.line;
+            } else if (next) {
+                targetDocLine = next.line;
+            }
+
+            if (targetDocLine >= 0 && targetDocLine !== lastSentNppLine) {
+                lastSentNppLine = targetDocLine;
+                postAct('SYNC_SCROLL_TO_NPP:' + targetDocLine);
+            }
+        }
+
+        // ==================== AUTO-HIDING FLOATING SCROLLBAR & SCROLL LISTENER ====================
         let scrollHideTimer = null;
         function triggerScrollbarVisible() {
             document.documentElement.classList.add('scrolling');
@@ -8273,21 +10717,83 @@ namespace NppPlugin.OmniView.Core
             }, 1000);
         }
 
-        window.addEventListener('scroll', triggerScrollbarVisible, { passive: true });
+        window.addEventListener('scroll', () => {
+            triggerScrollbarVisible();
+
+            if (!window.__SYNC_SCROLL_ENABLED__ || isNppDrivenScrolling) return;
+
+            if (previewScrollThrottle) return;
+            previewScrollThrottle = setTimeout(() => {
+                previewScrollThrottle = null;
+                calculateAndSendNppScroll();
+            }, 35);
+        }, { passive: true });
+
         window.addEventListener('mousemove', (e) => {
             if (window.innerWidth - e.clientX <= 35) {
                 triggerScrollbarVisible();
             }
         }, { passive: true });
 
+        // ==================== BATCH WORKBENCH CONTROLLER ====================
+        function initBatchView() {
+            if (!document.getElementById('batch-bench-view')) return;
+
+            let savedMode = SafeStorage.getItem('npp_omniview_batch_view_mode') || 'bench';
+            switchBatchViewMode(savedMode, true);
+        }
+
+        window.switchBatchViewMode = function(mode, skipToast) {
+            const benchView = document.getElementById('batch-bench-view');
+            const codeView = document.getElementById('code-viewer-root');
+            const btnBench = document.getElementById('btn-batch-mode-bench');
+            const btnCode = document.getElementById('btn-batch-mode-code');
+
+            if (!benchView || !codeView) return;
+
+            if (mode === 'code') {
+                benchView.style.display = 'none';
+                codeView.style.display = 'block';
+                if (btnBench) btnBench.classList.remove('active');
+                if (btnCode) btnCode.classList.add('active');
+                if (!skipToast) showToast('已切换至: 源码浏览模式');
+                if (window.enhanceCodeBlocks) enhanceCodeBlocks();
+            } else {
+                benchView.style.display = 'flex';
+                codeView.style.display = 'none';
+                if (btnBench) btnBench.classList.add('active');
+                if (btnCode) btnCode.classList.remove('active');
+                if (!skipToast) showToast('已切换至: 批处理工作台模式');
+            }
+
+            SafeStorage.setItem('npp_omniview_batch_view_mode', mode);
+        };
+
+        window.switchBatchTab = function(tabName) {
+            const tabs = ['labels', 'security', 'cheatsheet'];
+            tabs.forEach(t => {
+                const btn = document.getElementById('tab-btn-' + t);
+                const pane = document.getElementById('batch-pane-' + t);
+                if (t === tabName) {
+                    if (btn) btn.classList.add('active');
+                    if (pane) pane.style.display = 'block';
+                } else {
+                    if (btn) btn.classList.remove('active');
+                    if (pane) pane.style.display = 'none';
+                }
+            });
+        };
+
+        window.jumpToBatchLabel = function(lineNo, labelName) {
+            postAct('GOTO_LINE:' + lineNo);
+            showToast('已驱动 Notepad++ 定位至第 ' + lineNo + ' 行: ' + (labelName || ''));
+        };
+
         // ==================== POWERSHELL RICH VIEW CONTROLLER ====================
         function initPowerShellView() {
             if (!document.getElementById('ps-doc-view')) return;
 
-            let savedMode = 'doc';
-            try {
-                savedMode = localStorage.getItem('npp_omniview_ps_view_mode') || 'doc';
-            } catch(e) {}
+            let savedMode = SafeStorage.getItem('npp_omniview_ps_view_mode') || 'doc';
             switchPsViewMode(savedMode, true);
         }
 
@@ -8314,9 +10820,7 @@ namespace NppPlugin.OmniView.Core
                 if (!skipToast) showToast('已切换至: 帮助手册模式');
             }
 
-            try {
-                localStorage.setItem('npp_omniview_ps_view_mode', mode);
-            } catch(e) {}
+            SafeStorage.setItem('npp_omniview_ps_view_mode', mode);
         };
 
         window.togglePsOutlineDrawer = function(force) {
@@ -8419,11 +10923,8 @@ namespace NppPlugin.OmniView.Core
             initJsonView();
             initXmlView();
             renderCsvGrid();
-            let savedSvgColor = null, savedSvgName = null;
-            try {
-                savedSvgColor = localStorage.getItem('npp_omniview_svg_bg_color');
-                savedSvgName = localStorage.getItem('npp_omniview_svg_bg_name');
-            } catch(e){}
+            let savedSvgColor = SafeStorage.getItem('npp_omniview_svg_bg_color');
+            let savedSvgName = SafeStorage.getItem('npp_omniview_svg_bg_name');
             if (savedSvgColor !== null) {
                 setCanvasBg('svg', savedSvgColor, savedSvgName);
             } else {
@@ -8431,11 +10932,8 @@ namespace NppPlugin.OmniView.Core
             }
             initSvgView();
             initYamlView();
-            let savedMmColor = null, savedMmName = null;
-            try {
-                savedMmColor = localStorage.getItem('npp_omniview_mermaid_bg_color');
-                savedMmName = localStorage.getItem('npp_omniview_mermaid_bg_name');
-            } catch(e){}
+            let savedMmColor = SafeStorage.getItem('npp_omniview_mermaid_bg_color');
+            let savedMmName = SafeStorage.getItem('npp_omniview_mermaid_bg_name');
             if (savedMmColor !== null) {
                 setCanvasBg('mermaid', savedMmColor, savedMmName);
             } else {
@@ -8445,6 +10943,8 @@ namespace NppPlugin.OmniView.Core
             initMermaidView(true);
             initHtmlView();
             initPowerShellView();
+            initBatchView();
+            initSyncScrollButtonState();
             if (window.initMarkdownInPlaceEditing) window.initMarkdownInPlaceEditing();
             if (window.initSvgInPlaceEditing) window.initSvgInPlaceEditing();
             if (window.initMermaidInPlaceEditing) window.initMermaidInPlaceEditing();

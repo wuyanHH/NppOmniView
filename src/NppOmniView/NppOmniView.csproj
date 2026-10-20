@@ -9,10 +9,10 @@
     <LangVersion>latest</LangVersion>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <!-- 版本号定义与程序集元数据 (符合 Notepad++ 官方开源插件规范) -->
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
-    <InformationalVersion>1.0.0</InformationalVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
+    <InformationalVersion>1.1.0</InformationalVersion>
     <Product>NppOmniView (全能视图)</Product>
     <Title>NppOmniView</Title>
     <Description>现代全格式实时渲染预览与双向就地编辑 Notepad++ 插件 (x64)</Description>
@@ -20,8 +20,8 @@
     <Authors>NppOmniView Contributors</Authors>
     <Copyright>Copyright © 2026 NppOmniView Contributors. All rights reserved.</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/npp-plugins/NppOmniView</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/npp-plugins/NppOmniView</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/wuyanHH/NppOmniView</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/wuyanHH/NppOmniView</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
   </PropertyGroup>
   <ItemGroup>

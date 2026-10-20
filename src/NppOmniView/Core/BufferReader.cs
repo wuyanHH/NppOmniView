@@ -125,5 +125,56 @@ namespace NppPlugin.OmniView.Core
             firstVisibleDocLine = (int)Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_DOCLINEFROMVISIBLE, firstDisplayLine, 0);
             totalDocLines = (int)Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_GETLINECOUNT, 0, 0);
         }
+
+        /// <summary>
+        /// 平滑滚动 Notepad++ 编辑器视口，使指定的文档行（0-based）位于视口最顶端
+        /// </summary>
+        /// <param name="docLine">目标文档行号 (0-based)</param>
+        public static void ScrollToDocumentLine(int docLine)
+        {
+            IntPtr curScintilla = PluginBase.GetCurrentScintilla();
+            if (curScintilla == IntPtr.Zero) return;
+
+            int totalDocLines = (int)Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_GETLINECOUNT, 0, 0);
+            if (totalDocLines <= 0) return;
+            if (docLine < 0) docLine = 0;
+            if (docLine >= totalDocLines) docLine = totalDocLines - 1;
+
+            int firstDisplayLine = (int)Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_GETFIRSTVISIBLELINE, 0, 0);
+            int currentDocLine = (int)Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_DOCLINEFROMVISIBLE, firstDisplayLine, 0);
+
+            int diff = docLine - currentDocLine;
+            if (diff != 0)
+            {
+                Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_LINESCROLL, 0, diff);
+            }
+        }
+
+        /// <summary>
+        /// 精准将 Notepad++ 光标跳转至指定行，高亮该行并激活原生编辑器
+        /// </summary>
+        public static void JumpToDocumentLine(int line)
+        {
+            IntPtr curScintilla = PluginBase.GetCurrentScintilla();
+            if (curScintilla == IntPtr.Zero) return;
+
+            int totalLines = (int)Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_GETLINECOUNT, 0, 0);
+            if (line < 0) line = 0;
+            if (line >= totalLines && totalLines > 0) line = totalLines - 1;
+
+            int lineStartPos = (int)Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_POSITIONFROMLINE, line, 0);
+            int lineEndPos = (int)Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_GETLINEENDPOSITION, line, 0);
+
+            // 确保折叠代码行被展开
+            Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_ENSUREVISIBLE, line, 0);
+
+            // 移动光标并高亮选中目标行，将光标居中滚动到视口
+            Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_SETSEL, lineStartPos, lineEndPos);
+            Win32.SendMessage(curScintilla, (uint)SciMsg.SCI_SCROLLCARET, 0, 0);
+
+            // 确保主窗口与编辑器获得焦点
+            Win32.SetForegroundWindow(PluginBase.nppData._nppHandle);
+            Win32.SetFocus(curScintilla);
+        }
     }
 }

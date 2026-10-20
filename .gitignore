@@ -37,3 +37,9 @@ $RECYCLE.BIN/
 
 # 本地 Agent / 临时任务与诊断目录
 .agents/
+
+# 发布归档二进制大文件防污染 (遵循 universal-release 规范)
+release/**/*.zip
+release/**/*.tar.gz
+release/**/*.7z
+

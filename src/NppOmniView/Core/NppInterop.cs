@@ -20,6 +20,13 @@ namespace NppPlugin.OmniView.Core
         [DllImport("user32.dll", CharSet = CharSet.Unicode)]
         public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, int wParam, out int lParam);
 
+        [DllImport("user32.dll")]
+        public static extern IntPtr SetFocus(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool SetForegroundWindow(IntPtr hWnd);
+
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern IntPtr LoadImage(IntPtr hinst, string lpszName, uint uType, int cxDesired, int cyDesired, uint fuLoad);
 
@@ -100,6 +107,12 @@ namespace NppPlugin.OmniView.Core
 
         [DllImport("user32.dll")]
         public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern int WritePrivateProfileString(string lpAppName, string lpKeyName, string lpString, string lpFileName);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        public static extern int GetPrivateProfileString(string lpAppName, string lpKeyName, string lpDefault, StringBuilder lpReturnedString, int nSize, string lpFileName);
     }
 
     public enum NppMsg : uint
@@ -110,6 +123,7 @@ namespace NppPlugin.OmniView.Core
         NPPM_DMMSHOW = NPPMSG + 30,
         NPPM_DMMHIDE = NPPMSG + 31,
         NPPM_DMMREGASDCKDLG = NPPMSG + 33,
+        NPPM_SETMENUITEMCHECK = NPPMSG + 38,
         NPPM_GETCURRENTBUFFERID = NPPMSG + 60,
         NPPM_ADDTOOLBARICON_FORDARKMODE = NPPMSG + 101,
         NPPM_ISDARKMODEENABLED = NPPMSG + 107,
@@ -128,16 +142,22 @@ namespace NppPlugin.OmniView.Core
         SCI_CLEARALL = 2004,
         SCI_GETLENGTH = 2006,
         SCI_GETCURRENTPOS = 2008,
+        SCI_GOTOLINE = 2024,
         SCI_BEGINUNDOACTION = 2078,
         SCI_ENDUNDOACTION = 2079,
         SCI_GETCODEPAGE = 2137,
+        SCI_GETLINEENDPOSITION = 2136,
         SCI_SETXOFFSET = 2145,
         SCI_GETFIRSTVISIBLELINE = 2152,
         SCI_GETLINECOUNT = 2154,
         SCI_SETSEL = 2160,
+        SCI_POSITIONFROMLINE = 2167,
         SCI_LINESCROLL = 2168,
+        SCI_SCROLLCARET = 2169,
         SCI_GETTEXT = 2182,
+        SCI_VISIBLEFROMDOCLINE = 2220,
         SCI_DOCLINEFROMVISIBLE = 2221,
+        SCI_ENSUREVISIBLE = 2232,
         SCI_GETCHARACTERPOINTER = 2520,
         SCI_SETFIRSTVISIBLELINE = 2613,
         SCN_UPDATEUI = 2007,

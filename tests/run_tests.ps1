@@ -953,8 +953,344 @@ $hasXmlAdvancedTools = $htmlXmlCheck.Contains("formatXmlString") -and `
                        $htmlXmlCheck.Contains("xml-cdata-row")
 Assert-Equal $hasXmlAdvancedTools $true "XML view integrates formatXmlString, XPath copy, CDATA handling, and visual edit flash feedback"
 
+# ==================== BATCH WORKBENCH & ANALYZER TESTS ====================
+$batSample = @"
+@echo off
+chcp 65001 >nul
+setlocal enabledelayedexpansion
+
+:: 全局变量初始化
+:init
+set TARGET_DIR=%~dp0dist
+if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
+
+:build :: 编译构建核心程序
+echo Building...
+msbuild App.sln /p:Configuration=Release
+
+:clean
+del /f /q /s "%TARGET_DIR%\*.*"
+
+:eof
+exit /b 0
+"@
+
+$batAnalysis = [NppPlugin.OmniView.Core.BatchScriptAnalyzer]::Analyze($batSample, "C:\workspace\deploy.bat")
+Assert-Equal $batAnalysis.ScriptName "deploy.bat" "BatchScriptAnalyzer extracts script filename"
+Assert-Equal $batAnalysis.HasEchoOff $true "BatchScriptAnalyzer identifies @echo off"
+Assert-Equal $batAnalysis.HasUtf8CodePage $true "BatchScriptAnalyzer identifies chcp 65001"
+Assert-Equal $batAnalysis.HasDelayedExpansion $true "BatchScriptAnalyzer identifies setlocal enabledelayedexpansion"
+Assert-Equal $batAnalysis.Labels.Count 4 "BatchScriptAnalyzer extracts exactly 4 labels (excludes :: comment)"
+Assert-Equal $batAnalysis.Labels[0].Name ":init" "First label is :init"
+Assert-Equal $batAnalysis.Labels[1].Name ":build" "Second label is :build"
+Assert-Equal ($batAnalysis.Labels[1].Description.Contains("编译构建")) $true "Extracts inline comment as label description"
+$hasDelWarning = ($batAnalysis.SecurityNotices | Where-Object { $_.Title.Contains("del /f /q") }) -ne $null
+Assert-Equal $hasDelWarning $true "BatchScriptAnalyzer flags del /f /q as security warning"
+
+# Batch Html Generation Test
+$batDoc = New-Object NppPlugin.OmniView.Core.DocumentContext
+$batDoc.Content = $batSample
+$batDoc.FullPath = "C:\workspace\deploy.bat"
+$batDoc.Extension = ".bat"
+$batDoc.IsSavedOnDisk = $true
+
+$batDet = [NppPlugin.OmniView.Core.MultiFormatDetector]::Evaluate($batDoc, $null)
+Assert-Equal $batDet.Format ([NppPlugin.OmniView.Core.DocFormat]::Code) "MultiFormatDetector evaluates .bat as Code format"
+Assert-Equal $batDet.DetectedLanguage "batch" "MultiFormatDetector evaluates .bat as batch language"
+
+$htmlBatch = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::BuildOmniViewHtml($batDoc, $batDet, "", $false)
+$hasBatchWorkbench = $htmlBatch.Contains("id='batch-bench-view'") -and `
+                     $htmlBatch.Contains("BATCH 批处理") -and `
+                     $htmlBatch.Contains("RUN_BATCH:normal") -and `
+                     $htmlBatch.Contains("RUN_BATCH:admin")
+Assert-Equal $hasBatchWorkbench $true "BuildOmniViewHtml renders rich Batch workbench with run actions"
+
+$hasBatchLabels = $htmlBatch.Contains("jumpToBatchLabel") -and `
+                  $htmlBatch.Contains(":init") -and `
+                  $htmlBatch.Contains(":build")
+Assert-Equal $hasBatchLabels $true "Batch workbench renders clickable :label outline"
+
+$hasBatchCheat = $htmlBatch.Contains("%~dp0") -and `
+                 $htmlBatch.Contains("%ERRORLEVEL%") -and `
+                 $htmlBatch.Contains("chcp 65001")
+Assert-Equal $hasBatchCheat $true "Batch workbench renders syntax and variable cheat sheet"
+
+# ==================== Test Suite: XML Revamp & Modern Architecture ====================
+$xmlContent = Get-Content -Raw "E:\Projects\plugins\NppOmniView\tests\samples\sample.xml"
+$xmlDoc = New-Object NppPlugin.OmniView.Core.DocumentContext
+$xmlDoc.FullPath = "E:\Projects\plugins\NppOmniView\tests\samples\sample.xml"
+$xmlDoc.Extension = ".xml"
+$xmlDoc.Content = $xmlContent
+$xmlDoc.IsSavedOnDisk = $true
+
+$xmlDet = [NppPlugin.OmniView.Core.MultiFormatDetector]::Evaluate($xmlDoc, $null)
+$htmlXml = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::BuildOmniViewHtml($xmlDoc, $xmlDet, "", $false)
+
+# Test XML-1: 结构树、表格透视与标准转 JSON 三大清晰子模式及闭合行开关
+$hasXmlSegmentedModes = $htmlXml.Contains("btn-xml-mode-tree") -and `
+                        $htmlXml.Contains("btn-xml-mode-grid") -and `
+                        $htmlXml.Contains("btn-xml-mode-json") -and `
+                        $htmlXml.Contains("btn-toggle-closing-tags") -and `
+                        $htmlXml.Contains("toggleXmlClosingTags()")
+Assert-Equal $hasXmlSegmentedModes $true "XML view integrates 3-mode segmented switcher (Tree, Grid, JSON) and closing tags toggle"
+
+# Test XML-2: 实时 XPath 面包屑导航条与工具按钮
+$hasXmlBreadcrumbBar = $htmlXml.Contains("id='xml-breadcrumb-bar'") -and `
+                       $htmlXml.Contains("id='xml-breadcrumbs'") -and `
+                       $htmlXml.Contains("copyActiveXPath()") -and `
+                       $htmlXml.Contains("copyActiveNodeXml()")
+Assert-Equal $hasXmlBreadcrumbBar $true "XML view includes real-time XPath breadcrumb bar and copy controllers"
+
+# Test XML-3: 数据网格视图容器与实体选择器
+$hasXmlGrid = $htmlXml.Contains("id='xml-grid-wrap'") -and `
+              $htmlXml.Contains("id='xml-grid-selector'") -and `
+              $htmlXml.Contains("exportXmlGridAsCsv()")
+Assert-Equal $hasXmlGrid $true "XML view includes data grid view with entity selector and CSV export"
+
+# Test XML-4: XML 转 JSON 视图容器
+$hasXmlJson = $htmlXml.Contains("id='xml-json-wrap'") -and `
+              $htmlXml.Contains("copyXmlAsJson()")
+Assert-Equal $hasXmlJson $true "XML view includes XML to JSON transformation view and copy tool"
+
+# Test XML-5: 多级深度折叠控制器
+$hasXmlDepth = $htmlXml.Contains("expandXmlToDepth(1)") -and `
+               $htmlXml.Contains("expandXmlToDepth(2)") -and `
+               $htmlXml.Contains("expandXmlToDepth(3)")
+Assert-Equal $hasXmlDepth $true "XML view includes multi-level depth expansion controls (Level 1, 2, 3)"
+
+# ==================== Test Suite: In-Place Editing Mutual Exclusion & Auto-Close ====================
+$hasAutoCloseController = $htmlXml.Contains("window.closeAllActiveInPlaceEditors") -and `
+                          $htmlXml.Contains("document.addEventListener('click'")
+Assert-Equal $hasAutoCloseController $true "BuildOmniViewHtml includes universal closeAllActiveInPlaceEditors controller and backdrop auto-close listener"
+
+$hasOutsideClickProtection = $htmlXml.Contains("__suppressOutsideClickUntil") -and `
+                             $htmlXml.Contains("!document.body.contains(e.target)")
+Assert-Equal $hasOutsideClickProtection $true "BuildOmniViewHtml includes click-outside protection with time-lock and detached DOM guard"
+
+$hasNoChangeDetection = $htmlMd.Contains("if (newText === initialText)")
+Assert-Equal $hasNoChangeDetection $true "Markdown in-place editor safely detects unchanged content and suppresses redundant sync"
+
+# ==================== Test Suite: LaTeX Mathematics & KaTeX Rendering Pipeline ====================
+$testMathMd = @'
+### 4.4 麦克斯韦电磁学方程组 (Maxwell's Equations - 多行对齐)
+$$\begin{aligned}
+\nabla \cdot \mathbf{E} &= \frac{\rho}{\varepsilon_0} && \text{(高斯电场定律)} \\
+\nabla \cdot \mathbf{B} &= 0 && \text{(高斯磁场定律)} \\
+\nabla \times \mathbf{E} &= -\frac{\partial \mathbf{B}}{\partial t} && \text{(法拉第电磁感应定律)} \\
+\nabla \times \mathbf{B} &= \mu_0 \mathbf{J} + \mu_0 \varepsilon_0 \frac{\partial \mathbf{E}}{\partial t} && \text{(安培-麦克斯韦定律)}
+\end{aligned}$$
+
+### 4.5 分段函数与递推关系 (Piecewise Functions)
+$$f(n) = \begin{cases} 
+\frac{n}{2}, & \text{当 } n \text{ 为偶数} \\ 
+3n + 1, & \text{当 } n \text{ 为奇数 (冰雹猜想/考拉兹假说)} 
+\end{cases}$$
+'@
+
+$mathHtml = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::ConvertMarkdownToHtml($testMathMd)
+
+# Test Math-1: 麦克斯韦方程组成功生成数学块容器且大括号未被属性解析器破坏
+$hasMaxwellBlock = $mathHtml.Contains('class="math"') -and `
+                   $mathHtml.Contains('\begin{aligned}') -and `
+                   $mathHtml.Contains('\end{aligned}') -and `
+                   $mathHtml.Contains('\varepsilon_0') -and `
+                   $mathHtml.Contains('\mathbf{E}') -and `
+                   $mathHtml.Contains('(高斯电场定律)')
+Assert-Equal $hasMaxwellBlock $true "ConvertMarkdownToHtml successfully preserves multiline aligned math block and brackets"
+
+# Test Math-2: 分段函数方程组成功生成数学块容器且中文完整保留
+$hasPiecewiseBlock = $mathHtml.Contains('\begin{cases}') -and `
+                     $mathHtml.Contains('\end{cases}') -and `
+                     $mathHtml.Contains('\frac{n}{2}') -and `
+                     $mathHtml.Contains('当') -and `
+                     $mathHtml.Contains('冰雹猜想/考拉兹假说')
+Assert-Equal $hasPiecewiseBlock $true "ConvertMarkdownToHtml successfully preserves piecewise function and Chinese text"
+
+# Test Math-3: 双向滚动行号锚点精准对齐，无行数膨胀偏移
+$hasPragmaLine1 = $mathHtml.Contains('id="pragma-line-1"')
+$hasPragmaLine8 = $mathHtml.Contains('id="pragma-line-8"')
+$hasPragmaLine9 = $mathHtml.Contains('id="pragma-line-9"')
+Assert-Equal ($hasPragmaLine1 -and $hasPragmaLine8 -and $hasPragmaLine9) $true "ConvertMarkdownToHtml strictly maintains 1:1 line numbering with pragma-line anchors"
+
+# Test Math-4: 独立单行 $$E = mc^2$$ 块公式解析
+$singleLineMath = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::ConvertMarkdownToHtml('$$E = mc^2$$')
+$hasSingleBlock = $singleLineMath.Contains('class="math"') -and $singleLineMath.Contains('E = mc^2') -and $singleLineMath.Contains('\[')
+Assert-Equal $hasSingleBlock $true "ConvertMarkdownToHtml renders standalone $$E=mc^2$$ as display math block"
+
+# Test Math-5: 代码围栏内的 $$ 公式受到保护不被误解析
+$codeFenceMath = @'
+````markdown
+$$\begin{aligned}
+x = 1
+\end{aligned}$$
+````
+'@
+$codeFenceHtml = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::ConvertMarkdownToHtml($codeFenceMath)
+$codeFenceProtected = $codeFenceHtml.Contains('$$\begin{aligned}') -and (-not $codeFenceHtml.Contains('class="math"'))
+Assert-Equal $codeFenceProtected $true "ConvertMarkdownToHtml protects code fences containing $$ from math conversion"
+
+# Test Math-6: 前端页面包含 window.renderMathBlocks 全局渲染器与 KaTeX onload 钩子
+$fullMdHtml = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::BuildOmniViewHtml($docMd, $detMd, "", $false)
+$hasMathBlocksJs = $fullMdHtml.Contains("window.renderMathBlocks = function()") -and `
+                   $fullMdHtml.Contains("onload='if (window.renderMathBlocks) renderMathBlocks();'") -and `
+                   $fullMdHtml.Contains("language-math")
+Assert-Equal $hasMathBlocksJs $true "BuildOmniViewHtml provides window.renderMathBlocks and KaTeX onload hook"
+
+# ==================== Test Suite: Bi-Directional Scroll Synchronization ====================
+# Test Scroll-1: Markdown 顶栏包含同步滚动交互按钮与切换方法
+$hasSyncScrollBtn = $fullMdHtml.Contains("id='btn-sync-scroll'") -and `
+                    $fullMdHtml.Contains("toggleSyncScroll()") -and `
+                    $fullMdHtml.Contains("<span>同步滚动</span>")
+Assert-Equal $hasSyncScrollBtn $true "Markdown toolbar includes interactive sync scroll button and toggle controller"
+
+# Test Scroll-2: 前端包含 pragma-line 锚点高精度插值算法与开关记忆机制
+$hasSyncScrollLogic = $fullMdHtml.Contains("window.__SYNC_SCROLL_ENABLED__") -and `
+                      $fullMdHtml.Contains("window.syncScrollToLine = function") -and `
+                      $fullMdHtml.Contains("[id^=pragma-line-]") -and `
+                      $fullMdHtml.Contains("calculateAndSendNppScroll")
+Assert-Equal $hasSyncScrollLogic $true "Frontend includes high-precision pragma-line anchor interpolation and persistence"
+
+# Test Scroll-3: 前端包含反向驱动 Notepad++ 滚动的 SYNC_SCROLL_TO_NPP 消息协议
+$hasReverseSyncProtocol = $fullMdHtml.Contains("postAct('SYNC_SCROLL_TO_NPP:'")
+Assert-Equal $hasReverseSyncProtocol $true "Frontend dispatches SYNC_SCROLL_TO_NPP reverse scroll synchronization message"
+
+# Test Scroll-4: C# BufferReader 导出 ScrollToDocumentLine 控制方法
+$methodInfo = [NppPlugin.OmniView.Core.BufferReader].GetMethod("ScrollToDocumentLine")
+Assert-Equal ($methodInfo -ne $null) $true "BufferReader exposes ScrollToDocumentLine native Scintilla controller"
+
+# Test Scroll-5: 前端注入 SafeStorage 安全存储代理，杜绝 WebView2 沙箱 SecurityError
+$hasSafeStorage = $fullMdHtml.Contains("const SafeStorage = {") -and `
+                  $fullMdHtml.Contains("SafeStorage.getItem('npp_omniview_sync_scroll')")
+Assert-Equal $hasSafeStorage $true "Frontend injects SafeStorage proxy eliminating WebView2 sandbox SecurityError"
+
+# ==================== Test Suite: SQL & Shell Outline Rich Views ====================
+# Test SQL-1: SqlScriptAnalyzer 结构化解析
+$sqlContent = Get-Content -Raw "E:\Projects\plugins\NppOmniView\tests\samples\sample.sql"
+$sqlDoc = New-Object NppPlugin.OmniView.Core.DocumentContext
+$sqlDoc.FullPath = "E:\Projects\plugins\NppOmniView\tests\samples\sample.sql"
+$sqlDoc.Extension = ".sql"
+$sqlDoc.Content = $sqlContent
+$sqlDoc.IsSavedOnDisk = $true
+
+$sqlAnalysis = [NppPlugin.OmniView.Core.SqlScriptAnalyzer]::Analyze($sqlContent, $sqlDoc.FullPath)
+Assert-Equal $sqlAnalysis.ScriptName "sample.sql" "SqlScriptAnalyzer extracts script filename"
+Assert-Equal $sqlAnalysis.DialectHint "MySQL 方言" "SqlScriptAnalyzer detects MySQL dialect"
+$hasTableAudit = [bool]($sqlAnalysis.Items | Where-Object { $_.Name.Contains("sys_document_audit_logs") })
+Assert-Equal $hasTableAudit $true "SqlScriptAnalyzer extracts CREATE TABLE sys_document_audit_logs"
+
+# Test SQL-2: BuildOmniViewHtml 生成 SQL 大纲与跳转卡片
+$sqlDet = [NppPlugin.OmniView.Core.MultiFormatDetector]::Evaluate($sqlDoc, $null)
+$htmlSql = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::BuildOmniViewHtml($sqlDoc, $sqlDet, "", $false)
+$hasSqlOutlineView = $htmlSql.Contains("id='sql-outline-view'") -and `
+                     $htmlSql.Contains("SQL 数据库脚本") -and `
+                     $htmlSql.Contains("jumpToSqlItem") -and `
+                     $htmlSql.Contains("id='sql-search-input'") -and `
+                     $htmlSql.Contains("switchSqlViewMode")
+Assert-Equal $hasSqlOutlineView $true "BuildOmniViewHtml renders rich SQL outline view with search and jump controllers"
+
+# Test Shell-1: ShellScriptAnalyzer 函数与配置解析
+$shContent = Get-Content -Raw "E:\Projects\plugins\NppOmniView\tests\samples\sample.sh"
+$shDoc = New-Object NppPlugin.OmniView.Core.DocumentContext
+$shDoc.FullPath = "E:\Projects\plugins\NppOmniView\tests\samples\sample.sh"
+$shDoc.Extension = ".sh"
+$shDoc.Content = $shContent
+$shDoc.IsSavedOnDisk = $true
+
+$shAnalysis = [NppPlugin.OmniView.Core.ShellScriptAnalyzer]::Analyze($shContent, $shDoc.FullPath)
+Assert-Equal $shAnalysis.ScriptName "sample.sh" "ShellScriptAnalyzer extracts script filename"
+Assert-Equal $shAnalysis.Shebang "/usr/bin/env bash" "ShellScriptAnalyzer extracts shebang"
+Assert-Equal $shAnalysis.HasStrictErrorCheck $true "ShellScriptAnalyzer detects set -euo pipefail"
+$hasUsageFunc = ($shAnalysis.Items | Where-Object { $_.Name.Contains("print_usage") }) -ne $null
+Assert-Equal $hasUsageFunc $true "ShellScriptAnalyzer extracts print_usage() function"
+
+# Test Shell-2: BuildOmniViewHtml 生成 Shell 函数大纲
+$shDet = [NppPlugin.OmniView.Core.MultiFormatDetector]::Evaluate($shDoc, $null)
+$htmlSh = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::BuildOmniViewHtml($shDoc, $shDet, "", $false)
+$hasShOutlineView = $htmlSh.Contains("id='sh-outline-view'") -and `
+                    $htmlSh.Contains("SHELL / BASH 脚本") -and `
+                    $htmlSh.Contains("jumpToShellItem") -and `
+                    $htmlSh.Contains("id='sh-search-input'") -and `
+                    $htmlSh.Contains("switchShellViewMode")
+Assert-Equal $hasShOutlineView $true "BuildOmniViewHtml renders rich Shell outline view with function navigation"
+
+# Test INI-1: IniConfigAnalyzer 提取 Section 与 Key-Value
+$iniContent = Get-Content -Raw "E:\Projects\plugins\NppOmniView\tests\samples\sample.ini"
+$iniDoc = New-Object NppPlugin.OmniView.Core.DocumentContext
+$iniDoc.FullPath = "E:\Projects\plugins\NppOmniView\tests\samples\sample.ini"
+$iniDoc.Extension = ".ini"
+$iniDoc.Content = $iniContent
+$iniDoc.IsSavedOnDisk = $true
+
+$iniAnalysis = [NppPlugin.OmniView.Core.IniConfigAnalyzer]::Analyze($iniContent, $iniDoc.FullPath)
+Assert-Equal $iniAnalysis.FileName "sample.ini" "IniConfigAnalyzer extracts script filename"
+Assert-Equal $iniAnalysis.Sections.Count 2 "IniConfigAnalyzer extracts 2 sections (Server, Database)"
+Assert-Equal $iniAnalysis.TotalKeys 6 "IniConfigAnalyzer counts 6 properties"
+
+# Test INI-2: BuildOmniViewHtml 生成 INI 属性网格树
+$iniDet = [NppPlugin.OmniView.Core.MultiFormatDetector]::Evaluate($iniDoc, $null)
+$htmlIni = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::BuildOmniViewHtml($iniDoc, $iniDet, "", $false)
+$hasIniGridView = $htmlIni.Contains("id='ini-grid-view'") -and `
+                  $htmlIni.Contains("INI / TOML 配置") -and `
+                  $htmlIni.Contains("jumpToIniLine") -and `
+                  $htmlIni.Contains("id='ini-search-input'") -and `
+                  $htmlIni.Contains("switchIniViewMode")
+Assert-Equal $hasIniGridView $true "BuildOmniViewHtml renders rich INI property grid with search and jump controllers"
+
+# Test Python-1: PythonScriptAnalyzer 提取 Class 与 Method
+$pyContent = Get-Content -Raw "E:\Projects\plugins\NppOmniView\tests\samples\sample.py"
+$pyDoc = New-Object NppPlugin.OmniView.Core.DocumentContext
+$pyDoc.FullPath = "E:\Projects\plugins\NppOmniView\tests\samples\sample.py"
+$pyDoc.Extension = ".py"
+$pyDoc.Content = $pyContent
+$pyDoc.IsSavedOnDisk = $true
+
+$pyAnalysis = [NppPlugin.OmniView.Core.PythonScriptAnalyzer]::Analyze($pyContent, $pyDoc.FullPath)
+Assert-Equal $pyAnalysis.ScriptName "sample.py" "PythonScriptAnalyzer extracts script filename"
+$hasClassMetadata = ($pyAnalysis.Symbols | Where-Object { $_.Name.Contains("DocumentMetadata") -and $_.Type.ToString() -eq "Class" }) -ne $null
+Assert-Equal $hasClassMetadata $true "PythonScriptAnalyzer extracts class DocumentMetadata"
+$hasMethodIsScript = ($pyAnalysis.Symbols | Where-Object { $_.Name.Contains("is_script") }) -ne $null
+Assert-Equal $hasMethodIsScript $true "PythonScriptAnalyzer extracts method is_script"
+
+# Test Python-2: BuildOmniViewHtml 生成 Python 符号导航大纲
+$pyDet = [NppPlugin.OmniView.Core.MultiFormatDetector]::Evaluate($pyDoc, $null)
+$htmlPy = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::BuildOmniViewHtml($pyDoc, $pyDet, "", $false)
+$hasPyOutlineView = $htmlPy.Contains("id='py-outline-view'") -and `
+                    $htmlPy.Contains("PYTHON 脚本") -and `
+                    $htmlPy.Contains("jumpToPySymbol") -and `
+                    $htmlPy.Contains("id='py-search-input'") -and `
+                    $htmlPy.Contains("switchPyViewMode")
+Assert-Equal $hasPyOutlineView $true "BuildOmniViewHtml renders rich Python outline view with symbol navigation"
+
+# Test Smart Auto-Collapse: IsRichViewDocument 判定规则
+$txtDoc = New-Object NppPlugin.OmniView.Core.DocumentContext
+$txtDoc.Extension = ".txt"
+$txtDoc.Content = "hello pure text log"
+$txtDet = [NppPlugin.OmniView.Core.MultiFormatDetector]::Evaluate($txtDoc, $null)
+$isTxtRich = [NppPlugin.OmniView.Main]::IsRichViewDocument($txtDoc, $txtDet)
+Assert-Equal $isTxtRich $false "IsRichViewDocument evaluates .txt as non-rich format (triggers auto-collapse)"
+
+$mdDoc = New-Object NppPlugin.OmniView.Core.DocumentContext
+$mdDoc.Extension = ".md"
+$mdDoc.Content = "# Title"
+$mdDet = [NppPlugin.OmniView.Core.MultiFormatDetector]::Evaluate($mdDoc, $null)
+$isMdRich = [NppPlugin.OmniView.Main]::IsRichViewDocument($mdDoc, $mdDet)
+Assert-Equal $isMdRich $true "IsRichViewDocument evaluates Markdown as rich format"
+
+$isPyRich = [NppPlugin.OmniView.Main]::IsRichViewDocument($pyDoc, $pyDet)
+Assert-Equal $isPyRich $true "IsRichViewDocument evaluates Python as rich format"
+
+$isIniRich = [NppPlugin.OmniView.Main]::IsRichViewDocument($iniDoc, $iniDet)
+Assert-Equal $isIniRich $true "IsRichViewDocument evaluates INI as rich format"
+
+# Test Clean Text View: 纯文本/普通源码文档已经彻底消除了大卡片，采用轻量状态条
+$htmlTxt = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::BuildOmniViewHtml($txtDoc, $txtDet, "", $false)
+$hasNoOldBigCard = (-not $htmlTxt.Contains("免渲染休眠")) -and $htmlTxt.Contains("纯文本静默模式")
+Assert-Equal $hasNoOldBigCard $true "Clean text view strictly eliminates verbose legacy dormant card in favor of minimal banner"
+
+
 $resultColor = if ($testsFailed -eq 0) { "Green" } else { "Red" }
 $testsPassed = $testsPassed
 $testsFailed = $testsFailed
 Write-Host "Results: $testsPassed Passed, $testsFailed Failed" -ForegroundColor $resultColor
 if ($testsFailed -gt 0) { exit 1 }
+

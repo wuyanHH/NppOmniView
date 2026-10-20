@@ -16,18 +16,86 @@ namespace NppPlugin.OmniView
         /// <summary>
         /// NppOmniView 官方正式发布版本号 (符合语义化版本 SemVer 规范与 nppPluginList 标准)
         /// </summary>
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
 
         private static PreviewDockForm _previewForm = null;
         private static Timer _debounceTimer;
+        private static DateTime _lastPreviewDrivenScrollTime = DateTime.MinValue;
         private static readonly Dictionary<IntPtr, DocFormat> _forcedOverrides = new Dictionary<IntPtr, DocFormat>();
         private static IntPtr _ptrPluginName = IntPtr.Zero;
         private static IntPtr _ptrFuncItems = IntPtr.Zero;
         private static NppFuncItemDelegate _toggleDelegate;
         private static NppFuncItemDelegate _formatDelegate;
+        private static NppFuncItemDelegate _autoCollapseDelegate;
         private static NppFuncItemDelegate _aboutDelegate;
         private static IntPtr _ptrTbIcons = IntPtr.Zero;
         private static bool _resolverRegistered = false;
+        private static bool _autoCollapseEnabled = true;
+        private static bool _autoCollapsedByPlugin = false;
+        private static bool _userExplicitlyClosed = false;
+
+        private static string GetConfigFilePath()
+        {
+            try
+            {
+                string nppAppData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Notepad++", "plugins", "config");
+                if (Directory.Exists(nppAppData))
+                {
+                    return Path.Combine(nppAppData, "NppOmniView.ini");
+                }
+                string localFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                return Path.Combine(localFolder ?? ".", "NppOmniView.ini");
+            }
+            catch
+            {
+                return "NppOmniView.ini";
+            }
+        }
+
+        private static void LoadConfig()
+        {
+            try
+            {
+                string cfgPath = GetConfigFilePath();
+                if (File.Exists(cfgPath))
+                {
+                    var sb = new System.Text.StringBuilder(64);
+                    Win32.GetPrivateProfileString("Settings", "AutoCollapse", "1", sb, sb.Capacity, cfgPath);
+                    _autoCollapseEnabled = sb.ToString().Trim() != "0";
+                }
+                else
+                {
+                    _autoCollapseEnabled = true;
+                }
+            }
+            catch
+            {
+                _autoCollapseEnabled = true;
+            }
+        }
+
+        private static void SaveConfig()
+        {
+            try
+            {
+                string cfgPath = GetConfigFilePath();
+                string dir = Path.GetDirectoryName(cfgPath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+                Win32.WritePrivateProfileString("Settings", "AutoCollapse", _autoCollapseEnabled ? "1" : "0", cfgPath);
+            }
+            catch { }
+        }
+
+        private static void UpdateMenuCheckState()
+        {
+            if (PluginBase.nppData._nppHandle != IntPtr.Zero)
+            {
+                Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_SETMENUITEMCHECK, 2, _autoCollapseEnabled ? 1 : 0);
+            }
+        }
 
         private static void EnsureAssemblyResolver()
         {
@@ -52,6 +120,7 @@ namespace NppPlugin.OmniView
         {
             EnsureAssemblyResolver();
             PluginBase.nppData = notepadPlusData;
+            LoadConfig();
             _debounceTimer = new Timer { Interval = 280 };
             _debounceTimer.Tick += (s, e) => { _debounceTimer.Stop(); RefreshPreview(); };
         }
@@ -65,11 +134,13 @@ namespace NppPlugin.OmniView
 
         public static IntPtr getFuncsArray(ref int nbF)
         {
-            nbF = 3;
+            nbF = 4;
             if (_ptrFuncItems == IntPtr.Zero)
             {
+                LoadConfig();
                 _toggleDelegate = TogglePreviewPanel;
                 _formatDelegate = SmartFormatCurrentBuffer;
+                _autoCollapseDelegate = ToggleAutoCollapse;
                 _aboutDelegate = ShowAboutDialog;
 
                 ShortcutKey skToggle = new ShortcutKey { _isCtrl = 1, _isAlt = 1, _isShift = 0, _key = (byte)Keys.P };
@@ -100,18 +171,28 @@ namespace NppPlugin.OmniView
 
                 FuncItem item2 = new FuncItem
                 {
+                    _itemName = "\u26A1 \u667A\u80FD\u81EA\u9002\u5E94\u6536\u6298\u9762\u677F (Auto-Collapse)",
+                    _pFunc = Marshal.GetFunctionPointerForDelegate(_autoCollapseDelegate),
+                    _cmdID = 2,
+                    _init2Check = _autoCollapseEnabled,
+                    _pShKey = IntPtr.Zero
+                };
+
+                FuncItem item3 = new FuncItem
+                {
                     _itemName = "\u5173\u4E8E NppOmniView (About)...",
                     _pFunc = Marshal.GetFunctionPointerForDelegate(_aboutDelegate),
-                    _cmdID = 2,
+                    _cmdID = 3,
                     _init2Check = false,
                     _pShKey = IntPtr.Zero
                 };
 
                 int itemSize = Marshal.SizeOf(typeof(FuncItem));
-                _ptrFuncItems = Marshal.AllocHGlobal(itemSize * 3);
+                _ptrFuncItems = Marshal.AllocHGlobal(itemSize * 4);
                 Marshal.StructureToPtr(item0, _ptrFuncItems, false);
                 Marshal.StructureToPtr(item1, new IntPtr(_ptrFuncItems.ToInt64() + itemSize), false);
                 Marshal.StructureToPtr(item2, new IntPtr(_ptrFuncItems.ToInt64() + itemSize * 2), false);
+                Marshal.StructureToPtr(item3, new IntPtr(_ptrFuncItems.ToInt64() + itemSize * 3), false);
             }
             return _ptrFuncItems;
         }
@@ -124,9 +205,15 @@ namespace NppPlugin.OmniView
             ScNotification notification = (ScNotification)Marshal.PtrToStructure(notifyCode, typeof(ScNotification));
             uint code = notification.Header.code;
 
-            if (code == (uint)NppMsg.NPPN_TBMODIFICATION)
+            if (code == (uint)NppMsg.NPPN_READY)
+            {
+                UpdateMenuCheckState();
+                return;
+            }
+            else if (code == (uint)NppMsg.NPPN_TBMODIFICATION)
             {
                 RegisterToolbarIcon();
+                UpdateMenuCheckState();
                 return;
             }
             else if (code == (uint)NppMsg.NPPN_DARKMODECHANGED)
@@ -147,14 +234,48 @@ namespace NppPlugin.OmniView
             // Suppress cascading updates caused by plugin's own programmatic edits
             if (BufferReader.IsFormatting) return;
 
-            if (_previewForm == null || !_previewForm.Visible) return;
-
             if (code == (uint)NppMsg.NPPN_BUFFERACTIVATED || code == (uint)NppMsg.NPPN_FILESAVED)
             {
+                DocumentContext doc = BufferReader.GetCurrentDocument();
+                if (_autoCollapseEnabled)
+                {
+                    DetectionResult det = MultiFormatDetector.Evaluate(doc, _forcedOverrides);
+                    bool isRich = IsRichViewDocument(doc, det);
+
+                    if (!isRich)
+                    {
+                        // 非富文档：若当前面板可见，则自动收拢面板让出满宽编辑区
+                        if (_previewForm != null && _previewForm.Visible)
+                        {
+                            _autoCollapsedByPlugin = true;
+                            Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMHIDE, 0, _previewForm.Handle);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // 富文档：若此前是由插件自动收折的，且用户未显式主动关闭，则自动恢复弹开
+                        if (_autoCollapsedByPlugin && !_userExplicitlyClosed)
+                        {
+                            _autoCollapsedByPlugin = false;
+                            if (_previewForm != null)
+                            {
+                                Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMSHOW, 0, _previewForm.Handle);
+                            }
+                        }
+                    }
+                }
+
+                if (_previewForm == null || !_previewForm.Visible) return;
+
                 _previewForm?.NotifyLoadingStarted("正在读取并加载文档视图...");
                 RefreshPreview();
+                return;
             }
-            else if (code == (uint)SciMsg.SCN_MODIFIED)
+
+            if (_previewForm == null || !_previewForm.Visible) return;
+
+            if (code == (uint)SciMsg.SCN_MODIFIED)
             {
                 if ((notification.ModificationType & 0x03) != 0)
                 {
@@ -167,6 +288,10 @@ namespace NppPlugin.OmniView
             {
                 if ((notification.Updated & 0x08) != 0)
                 {
+                    // 若在 220ms 内由预览视口反向驱动滚动，则屏蔽向预览的回发，避免死循环震荡
+                    if ((DateTime.UtcNow - _lastPreviewDrivenScrollTime).TotalMilliseconds < 220)
+                        return;
+
                     BufferReader.GetScrollLineInfo(out int firstLine, out int totalLines);
                     _previewForm?.SyncScrollToLine(firstLine, totalLines);
                 }
@@ -216,6 +341,8 @@ namespace NppPlugin.OmniView
             EnsureAssemblyResolver();
             if (_previewForm == null)
             {
+                _userExplicitlyClosed = false;
+                _autoCollapsedByPlugin = false;
                 _previewForm = new PreviewDockForm(HandleWebViewAction);
 
                 NppTbData tbData = new NppTbData
@@ -237,14 +364,111 @@ namespace NppPlugin.OmniView
                 // Synchronize strictly with the form's real visible state
                 if (_previewForm.Visible)
                 {
+                    _userExplicitlyClosed = true;
+                    _autoCollapsedByPlugin = false;
                     Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMHIDE, 0, _previewForm.Handle);
                 }
                 else
                 {
+                    _userExplicitlyClosed = false;
+                    _autoCollapsedByPlugin = false;
                     Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMSHOW, 0, _previewForm.Handle);
                     RefreshPreview();
                 }
             }
+        }
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static void ToggleAutoCollapse()
+        {
+            EnsureAssemblyResolver();
+            _autoCollapseEnabled = !_autoCollapseEnabled;
+            SaveConfig();
+            UpdateMenuCheckState();
+
+            string tip = _autoCollapseEnabled 
+                ? "⚡ 已开启智能自适应收折：纯文本/无富预览文档将自动收起面板，富文档自动弹开" 
+                : "⚡ 已关闭智能自适应收折：面板将保持当前停靠状态不变";
+
+            if (_previewForm != null && _previewForm.Visible)
+            {
+                _previewForm.ExecuteScript("if(window.showToast) window.showToast('" + tip.Replace("'", "\\'") + "');");
+            }
+
+            DocumentContext doc = BufferReader.GetCurrentDocument();
+            DetectionResult det = MultiFormatDetector.Evaluate(doc, _forcedOverrides);
+            bool isRich = IsRichViewDocument(doc, det);
+
+            if (_autoCollapseEnabled)
+            {
+                if (!isRich && _previewForm != null && _previewForm.Visible)
+                {
+                    _autoCollapsedByPlugin = true;
+                    Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMHIDE, 0, _previewForm.Handle);
+                }
+                else if (isRich && _autoCollapsedByPlugin)
+                {
+                    _autoCollapsedByPlugin = false;
+                    if (_previewForm != null)
+                    {
+                        Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMSHOW, 0, _previewForm.Handle);
+                        RefreshPreview();
+                    }
+                }
+            }
+            else
+            {
+                if (_autoCollapsedByPlugin && _previewForm != null)
+                {
+                    _autoCollapsedByPlugin = false;
+                    Win32.SendMessage(PluginBase.nppData._nppHandle, (uint)NppMsg.NPPM_DMMSHOW, 0, _previewForm.Handle);
+                    RefreshPreview();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 判断当前文档是否属于支持 OmniView 专属结构化/可视化富视图的文档类型
+        /// </summary>
+        public static bool IsRichViewDocument(DocumentContext doc, DetectionResult det)
+        {
+            if (doc == null || det == null) return false;
+
+            // 1. 核心8大富格式
+            if (det.Format == DocFormat.Markdown ||
+                det.Format == DocFormat.Json ||
+                det.Format == DocFormat.Csv ||
+                det.Format == DocFormat.Svg ||
+                det.Format == DocFormat.Yaml ||
+                det.Format == DocFormat.Mermaid ||
+                det.Format == DocFormat.Html ||
+                det.Format == DocFormat.Xml)
+            {
+                return true;
+            }
+
+            // 2. 具备结构化大纲与可视化分析的代码类型
+            if (det.Format == DocFormat.Code)
+            {
+                string lang = !string.IsNullOrEmpty(det.DetectedLanguage) ? det.DetectedLanguage : MultiFormatDetector.GetLanguageForExtension(doc.Extension);
+                if (lang.Equals("powershell", StringComparison.OrdinalIgnoreCase) ||
+                    lang.Equals("batch", StringComparison.OrdinalIgnoreCase) ||
+                    lang.Equals("sql", StringComparison.OrdinalIgnoreCase) ||
+                    lang.Equals("bash", StringComparison.OrdinalIgnoreCase) ||
+                    lang.Equals("shell", StringComparison.OrdinalIgnoreCase) ||
+                    lang.Equals("sh", StringComparison.OrdinalIgnoreCase) ||
+                    lang.Equals("zsh", StringComparison.OrdinalIgnoreCase) ||
+                    lang.Equals("python", StringComparison.OrdinalIgnoreCase) ||
+                    lang.Equals("ini", StringComparison.OrdinalIgnoreCase) ||
+                    lang.Equals("toml", StringComparison.OrdinalIgnoreCase) ||
+                    lang.Equals("cfg", StringComparison.OrdinalIgnoreCase) ||
+                    lang.Equals("conf", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
@@ -299,6 +523,38 @@ namespace NppPlugin.OmniView
 
         private static void HandleWebViewAction(string action)
         {
+            if (action == "TOGGLE_AUTO_COLLAPSE")
+            {
+                ToggleAutoCollapse();
+                return;
+            }
+
+            if (action.StartsWith("JUMP_TO_LINE:"))
+            {
+                if (int.TryParse(action.Substring("JUMP_TO_LINE:".Length), out int line))
+                {
+                    BufferReader.JumpToDocumentLine(line);
+                }
+                return;
+            }
+
+            if (action.StartsWith("SYNC_SCROLL_TO_NPP:"))
+            {
+                if (int.TryParse(action.Substring("SYNC_SCROLL_TO_NPP:".Length), out int line))
+                {
+                    _lastPreviewDrivenScrollTime = DateTime.UtcNow;
+                    BufferReader.ScrollToDocumentLine(line);
+                }
+                return;
+            }
+
+            if (action == "TRIGGER_SYNC_SCROLL")
+            {
+                BufferReader.GetScrollLineInfo(out int firstLine, out int totalLines);
+                _previewForm?.SyncScrollToLine(firstLine, totalLines);
+                return;
+            }
+
             if (action.StartsWith("UPDATE_BUFFER:"))
             {
                 string newText = action.Substring("UPDATE_BUFFER:".Length);
@@ -319,6 +575,67 @@ namespace NppPlugin.OmniView
                 string newContent = FormatProcessor.ConvertCsvDelimiter(doc.Content, targetDelim, oldDelim);
                 BufferReader.ReplaceCurrentDocumentText(newContent, resetHScroll: true);
                 RefreshPreview();
+                return;
+            }
+
+            if (action.StartsWith("GOTO_LINE:"))
+            {
+                string lineStr = action.Substring("GOTO_LINE:".Length);
+                if (int.TryParse(lineStr, out int targetLine))
+                {
+                    BufferReader.JumpToDocumentLine(targetLine - 1);
+                }
+                return;
+            }
+
+            if (action.StartsWith("RUN_BATCH:"))
+            {
+                string mode = action.Substring("RUN_BATCH:".Length).Trim();
+                bool isAdmin = mode.Equals("admin", StringComparison.OrdinalIgnoreCase);
+
+                if (!doc.IsSavedOnDisk || string.IsNullOrEmpty(doc.FullPath) || !File.Exists(doc.FullPath))
+                {
+                    _previewForm?.ExecuteScript("if(window.showToast) window.showToast('⚠️ 请先将当前批处理脚本保存到磁盘后再运行！');");
+                    return;
+                }
+
+                try
+                {
+                    string docFolder = Path.GetDirectoryName(doc.FullPath);
+                    var psi = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "cmd.exe",
+                        Arguments = "/k \"cd /d \"" + docFolder + "\" && \"" + doc.FullPath + "\"\"",
+                        WorkingDirectory = docFolder,
+                        UseShellExecute = true
+                    };
+
+                    if (isAdmin)
+                    {
+                        psi.Verb = "runas";
+                    }
+
+                    System.Diagnostics.Process.Start(psi);
+                    string tip = isAdmin ? "已请求管理员提权并在控制台中启动运行！" : "已在当前脚本目录成功调起控制台运行！";
+                    _previewForm?.ExecuteScript("if(window.showToast) window.showToast('" + tip + "');");
+                }
+                catch (System.ComponentModel.Win32Exception wEx)
+                {
+                    if (wEx.NativeErrorCode == 1223)
+                    {
+                        _previewForm?.ExecuteScript("if(window.showToast) window.showToast('已取消管理员提权启动。');");
+                    }
+                    else
+                    {
+                        string safeErr = wEx.Message.Replace("'", "\\'");
+                        _previewForm?.ExecuteScript("if(window.showToast) window.showToast('启动批处理失败: " + safeErr + "');");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    string safeErr = ex.Message.Replace("'", "\\'");
+                    _previewForm?.ExecuteScript("if(window.showToast) window.showToast('启动批处理失败: " + safeErr + "');");
+                }
                 return;
             }
 

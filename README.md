@@ -1,12 +1,12 @@
 # NppOmniView (全能视图) - 现代全格式实时预览与双向就地编辑 Notepad++ 插件
 
-[![Release](https://img.shields.io/badge/Release-v1.0.0-blue.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/Release-v1.1.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 [![Notepad++](https://img.shields.io/badge/Notepad%2B%2B-v8.x%20(x64)-brightgreen.svg)](https://notepad-plus-plus.org/)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue.svg)](https://github.com/npp-plugins/NppOmniView)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue.svg)](https://github.com/wuyanHH/NppOmniView)
 [![Runtime](https://img.shields.io/badge/.NET%20Framework-4.8-purple.svg)](https://dotnet.microsoft.com/)
 [![Engine](https://img.shields.io/badge/Engine-Microsoft%20Edge%20WebView2-blue.svg)](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
-[![Tests](https://img.shields.io/badge/Tests-197%2F197%20Passing-success.svg)](tests/TEST_SPEC.md)
+[![Tests](https://img.shields.io/badge/Tests-252%2F252%20Passing-success.svg)](tests/TEST_SPEC.md)
 
 **NppOmniView** 是专为 **Notepad++ (x64)** 打造的工业级、多格式实时渲染预览与双向就地编辑插件。底层深度集成 **Microsoft Edge WebView2 (Chromium)** 高性能渲染引擎，辅以纯 C# 原生 Scintilla 内存桥接与 PE 导出表注入，实现 **0ms 击键即时反馈、双向无感撤销流、全格式所见即所得 (WYSIWYG) 与暗黑模式零闪烁融合**。
 
