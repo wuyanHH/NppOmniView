@@ -2,6 +2,9 @@
 using System.Net;
 using System.Text;
 using System.Web.Script.Serialization;
+
+using System.Text.RegularExpressions;
+
 using Markdig;
 using Markdig.Extensions.AutoIdentifiers;
 
@@ -17,14 +20,60 @@ namespace NppPlugin.OmniView.Core
 
         private static readonly JavaScriptSerializer JsonSerializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
 
+        private static readonly System.Text.RegularExpressions.Regex SvgDataUriRegex = new System.Text.RegularExpressions.Regex(
+            @"!\[(?<alt>[^\]]*)\]\(data:image\/svg\+xml(?:;[a-zA-Z0-9_\-]+)*,\s*(?<svg><svg[\s\S]*?<\/svg>)\s*\)",
+            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        /// <summary>
+        /// 自动规范化 Markdown 中通过 Data URI 直接嵌入裸露 SVG 源码的语法，将其转换为标准的 Base64 编码，防止 CommonMark 规范因空格与尖括号解析退化
+        /// </summary>
+        public static string NormalizeSvgDataUris(string md)
+        {
+            if (string.IsNullOrEmpty(md)) return string.Empty;
+            return SvgDataUriRegex.Replace(md, match =>
+            {
+                string alt = match.Groups["alt"].Value;
+                string svg = match.Groups["svg"].Value;
+                try
+                {
+                    string b64 = Convert.ToBase64String(Encoding.UTF8.GetBytes(svg));
+                    return "![" + alt + "](data:image/svg+xml;base64," + b64 + ")";
+                }
+                catch
+                {
+                    return match.Value;
+                }
+            });
+        }
+
         /// <summary>
         /// 将 Markdown 文本解析转换为高质量 HTML，集成 LaTeX 数学公式智能隔离预处理与行号精准对齐
         /// </summary>
+        private static readonly Regex LocalAbsImgRegex = new Regex(@"(<img\b[^>]*?\bsrc=['\""])(?:file:\/\/\/)?([a-zA-Z]):[\\/]([^'\""]*?)(['\""])", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>
+        /// 将本地物理绝对路径（如 C:\... 或 file:///C:/...）无缝转写为沙箱可安全读取的虚拟本地请求
+        /// </summary>
+        public static string NormalizeLocalAbsolutePaths(string html)
+        {
+            if (string.IsNullOrEmpty(html)) return html;
+            return LocalAbsImgRegex.Replace(html, m =>
+            {
+                string prefix = m.Groups[1].Value;
+                string drive = m.Groups[2].Value.ToUpperInvariant();
+                string rest = m.Groups[3].Value.Replace('\\', '/');
+                string suffix = m.Groups[4].Value;
+                return prefix + "https://local.doc/__abs__/" + drive + "/" + rest + suffix;
+            });
+        }
+
         public static string ConvertMarkdownToHtml(string md)
         {
             if (string.IsNullOrEmpty(md)) return string.Empty;
-            string preprocessed = MarkdownMathProcessor.Preprocess(md, out var mathItems);
+            string preprocessed = NormalizeSvgDataUris(md);
+            preprocessed = MarkdownMathProcessor.Preprocess(preprocessed, out var mathItems);
             string html = Markdown.ToHtml(preprocessed, MdPipeline);
+            html = NormalizeLocalAbsolutePaths(html);
             return MarkdownMathProcessor.Postprocess(html, mathItems);
         }
 
@@ -1454,7 +1503,7 @@ namespace NppPlugin.OmniView.Core
             else if (det.Format == DocFormat.Json)
             {
                 toolbarButtons = BuildEditButton(DocFormat.Json) + @"
-                    <button class='btn' onclick=""postAct('JSON_BEAUTIFY')"">" + IconSparkles + @"<span>美化缩进</span></button>
+                    <button class='btn' onclick=""postAct('JSON_BEAUTIFY')"" title=""按 2 空格美化当前 JSON 缩进 (Ctrl+Alt+F)"">" + IconSparkles + @"<span>美化缩进</span></button>
                     <button class='btn' onclick=""postAct('JSON_MINIFY')"">" + IconCompress + @"<span>压缩单行</span></button>
                     <div class='dropdown'>
                         <button class='btn btn-dropdown'><span>转换</span> " + IconChevronDown + @"</button>
@@ -1589,7 +1638,7 @@ namespace NppPlugin.OmniView.Core
             else if (det.Format == DocFormat.Yaml)
             {
                 toolbarButtons = BuildEditButton(DocFormat.Yaml) + @"
-                    <button class='btn' onclick=""beautifyYaml()"">" + IconSparkles + @"<span>美化缩进</span></button>
+                    <button class='btn' onclick=""beautifyYaml()"" title=""美化当前 YAML 缩进 (Ctrl+Alt+F)"">" + IconSparkles + @"<span>美化缩进</span></button>
                     <div class='dropdown'>
                         <button class='btn btn-dropdown'><span>转换</span> " + IconChevronDown + @"</button>
                         <div class='dropdown-menu'>
@@ -1783,13 +1832,13 @@ namespace NppPlugin.OmniView.Core
             else if (det.Format == DocFormat.Xml)
             {
                 toolbarButtons = BuildEditButton(DocFormat.Xml) + @"
-                    <button class='btn' onclick=""postAct('XML_BEAUTIFY')"">" + IconSparkles + @"<span>美化 XML</span></button>
+                    <button class='btn' onclick=""postAct('XML_BEAUTIFY')"" title=""按 2 空格美化当前 XML 缩进 (Ctrl+Alt+F)"">" + IconSparkles + @"<span>美化 XML</span></button>
                     <div class='dropdown'>
                         <button class='btn btn-dropdown'><span>操作</span> " + IconChevronDown + @"</button>
                         <div class='dropdown-menu'>
                             <div class='dropdown-group'>
                                 " + BuildDropdownHeader("XML 结构操作") + @"
-                                " + BuildDropdownItem("XML_BEAUTIFY", "icon-xml", IconSparkles, "美化 XML 缩进", "规范化 2 空格缩进并对齐节点", "格式化") + @"
+                                " + BuildDropdownItem("XML_BEAUTIFY", "icon-xml", IconSparkles, "美化 XML 缩进 (Ctrl+Alt+F)", "规范化 2 空格缩进并对齐节点", "格式化") + @"
                             </div>
                             " + DropdownDivider + @"
                             <div class='dropdown-group'>
@@ -2023,7 +2072,7 @@ namespace NppPlugin.OmniView.Core
     <meta name='viewport' content='width=device-width, initial-scale=1.0'>
     ").Append(baseTag).Append(@"
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css' onerror='this.onerror=null;'>
-    <script defer src='https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js' onload='if (window.renderMathBlocks) renderMathBlocks();'></script>
+    <script defer src='https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js' onload='if (window.renderMathBlocks) renderMathBlocks(); enhanceMarkdownImages();'></script>
     <script defer src='https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js'></script>
     <script defer src='https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js'></script>
     <link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css' onerror='this.onerror=null;'>
@@ -3267,21 +3316,313 @@ namespace NppPlugin.OmniView.Core
         body.dark-mode .md-body a { color: #58a6ff; }
         body.dark-mode .md-body a:hover { color: #79c0ff; background: rgba(56, 189, 248, 0.14); }
 
-        /* TOC List & Anchor Tree Enhancements */
+        /* TOC List & Anchor Tree Enhancements (Clean Single-Bullet Layout) */
         .md-body a[href^='#'] {
-            display: inline-flex; align-items: center; gap: 4px;
+            display: inline;
             font-weight: 500; font-size: 13.5px;
+            line-height: 1.6;
         }
+        /* 消除冗余的伪元素圆圈，彻底杜绝与原生列表 Bullet 重叠出现两个圈圈的问题 */
         .md-body a[href^='#']::before {
-            content: ''; display: inline-block; width: 6px; height: 6px;
-            border-radius: 50%; background: var(--border-hover);
-            margin-right: 3px; transition: all 0.18s ease; flex-shrink: 0;
+            display: none !important;
         }
-        .md-body a[href^='#']:hover::before {
-            background: var(--btn-primary-bg); transform: scale(1.35);
+        .md-body ul, .md-body ol {
+            padding-left: 24px;
+            margin: 0.6em 0;
         }
-        body.dark-mode .md-body a[href^='#']:hover::before {
-            background: #58a6ff;
+        .md-body li {
+            margin: 0.35em 0;
+            line-height: 1.6;
+        }
+        /* 外部 Web 链接优雅外链指引指示器 (精致现代矢量图标，自动排除图片链接) */
+        .md-body a[href^='http://'],
+        .md-body a[href^='https://'] {
+            word-break: break-all;
+            display: inline;
+        }
+        .md-body a[href^='http://']:not(:has(img))::after,
+        .md-body a[href^='https://']:not(:has(img))::after {
+            content: '';
+            display: inline-block;
+            width: 11px;
+            height: 11px;
+            margin-left: 3px;
+            margin-right: 2px;
+            vertical-align: -1px;
+            background-color: currentColor;
+            -webkit-mask: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272.6%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6%27/%3E%3Cpolyline points=%2715 3 21 3 21 9%27/%3E%3Cline x1=%2710%27 y1=%2714%27 x2=%2721%27 y2=%273%27/%3E%3C/svg%3E') no-repeat center / contain;
+            mask: url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27black%27 stroke-width=%272.6%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27%3E%3Cpath d=%27M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6%27/%3E%3Cpolyline points=%2715 3 21 3 21 9%27/%3E%3Cline x1=%2710%27 y1=%2714%27 x2=%2721%27 y2=%273%27/%3E%3C/svg%3E') no-repeat center / contain;
+            opacity: 0.6;
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .md-body a[href^='http://']:not(:has(img)):hover::after,
+        .md-body a[href^='https://']:not(:has(img)):hover::after {
+            opacity: 1;
+            transform: translate(1px, -1px);
+        }
+        /* ==================== MARKDOWN IMAGES & FIGURES STYLING ==================== */
+        .md-body img {
+            max-width: 100%;
+            height: auto;
+            display: inline-block;
+            vertical-align: middle;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            margin: 8px 0;
+            background-color: var(--bg-card);
+        }
+        .md-body img:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        }
+        body.dark-mode .md-body img {
+            border-color: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        }
+        body.dark-mode .md-body img:hover {
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        .md-body p > img:only-child {
+            display: block;
+            margin: 16px auto;
+        }
+        .md-body figure {
+            margin: 18px auto;
+            text-align: center;
+        }
+        .md-body figcaption {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            font-style: italic;
+        }
+
+        /* ==================== 高级 Markdown 图片卡片与全屏灯箱画廊 (OmniGallery / Lightbox) ==================== */
+        .md-img-card {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+            margin: 10px 0;
+            vertical-align: middle;
+        }
+        .md-body p:has(> .md-img-card:only-child) {
+            text-align: center;
+        }
+        .md-img-card img {
+            display: block;
+            margin: 0 auto !important;
+            cursor: zoom-in;
+        }
+        .md-img-card:hover img {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 26px rgba(0, 0, 0, 0.16);
+        }
+        body.dark-mode .md-img-card:hover img {
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+        }
+        .md-body a img {
+            cursor: pointer !important;
+        }
+
+        /* Lightbox Container (全屏遮罩与画廊舞台) */
+        .omni-lightbox {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            user-select: none;
+            animation: lbFadeIn 0.22s ease-out;
+        }
+        @keyframes lbFadeIn {
+            from { opacity: 0; transform: scale(0.985); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .lb-backdrop {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 15, 29, 0.88);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            z-index: 1;
+        }
+
+        /* 顶部悬浮工具栏 */
+        .lb-header {
+            position: absolute;
+            top: 0; left: 0; width: 100%;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            background: linear-gradient(180deg, rgba(10, 15, 29, 0.85) 0%, rgba(10, 15, 29, 0) 100%);
+            z-index: 10;
+            box-sizing: border-box;
+            color: #ffffff;
+            pointer-events: auto;
+        }
+        .lb-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            overflow: hidden;
+            max-width: 60%;
+        }
+        .lb-counter {
+            padding: 3px 8px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.12);
+            font-size: 11.5px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: #e2e8f0;
+            white-space: nowrap;
+        }
+        .lb-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #f8fafc;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .lb-header-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .lb-tool-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .lb-tool-btn:hover {
+            background: rgba(255, 255, 255, 0.22);
+            border-color: rgba(255, 255, 255, 0.35);
+            transform: translateY(-1px);
+        }
+        .lb-zoom-text {
+            min-width: 48px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #38bdf8;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 4px;
+            transition: background 0.15s ease;
+        }
+        .lb-zoom-text:hover {
+            background: rgba(56, 189, 248, 0.15);
+        }
+        .lb-divider {
+            width: 1px;
+            height: 18px;
+            background: rgba(255, 255, 255, 0.18);
+            margin: 0 4px;
+        }
+        .lb-close-btn:hover {
+            background: #ef4444 !important;
+            border-color: #ef4444 !important;
+        }
+
+        /* 侧边上一张/下一张翻页按钮 */
+        .lb-nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .lb-nav-btn:hover {
+            background: rgba(37, 99, 235, 0.85);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-50%) scale(1.08);
+            box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+        }
+        .lb-nav-btn.prev { left: 24px; }
+        .lb-nav-btn.next { right: 24px; }
+        .lb-nav-btn.disabled {
+            opacity: 0.25 !important;
+            cursor: not-allowed !important;
+            pointer-events: none !important;
+        }
+
+        /* 舞台与图片呈现 */
+        .lb-stage {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2;
+            cursor: grab;
+            overflow: hidden;
+        }
+        .lb-stage.is-dragging {
+            cursor: grabbing !important;
+        }
+        .lb-main-img {
+            max-width: 90vw;
+            max-height: 86vh;
+            object-fit: contain;
+            border-radius: 6px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+            transform-origin: center center;
+            transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        /* 缩放浮动提示胶囊 */
+        .lb-toast {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            padding: 6px 14px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #38bdf8;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .lb-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
         }
 
         /* Target Anchor Pulse Highlight */
@@ -4361,7 +4702,8 @@ namespace NppPlugin.OmniView.Core
         /* Mac-Style Header */
         .code-block-header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 6px 12px; background: rgba(0, 0, 0, 0.025); border-bottom: 1px solid var(--border);
+            height: 36px; min-height: 36px; max-height: 36px; box-sizing: border-box;
+            padding: 0 12px; background: rgba(0, 0, 0, 0.025); border-bottom: 1px solid var(--border);
             font-size: 12px; user-select: none;
         }
         body.dark-mode .code-block-header { background: rgba(255, 255, 255, 0.035); }
@@ -4426,9 +4768,33 @@ namespace NppPlugin.OmniView.Core
         .code-table {
             border-collapse: collapse; width: 100%; margin: 0 !important; border: none !important;
             font-family: Consolas, 'Cascadia Code', 'Fira Code', Menlo, monospace;
-            font-size: 13px; line-height: 1.6; background: transparent;
+            font-size: 13px; line-height: 20px !important; background: transparent;
         }
         .code-table tbody { border: none !important; }
+
+        .code-block-wrapper.is-wrapped .code-table {
+            table-layout: fixed !important;
+            width: 100% !important;
+        }
+        .code-block-wrapper.is-wrapped .code-line {
+            white-space: pre-wrap !important;
+            word-break: break-all !important;
+            overflow-wrap: anywhere !important;
+        }
+        .code-block-wrapper.is-wrapped .code-line code {
+            white-space: pre-wrap !important;
+            word-break: break-all !important;
+            overflow-wrap: anywhere !important;
+            display: block !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+            text-indent: 0 !important;
+        }
+        .code-action-btn.active {
+            background: var(--btn-hover);
+            color: var(--primary, #2563eb);
+            border-color: var(--primary, #2563eb);
+        }
 
         .code-tr {
             background: transparent !important; border: none !important;
@@ -4443,26 +4809,42 @@ namespace NppPlugin.OmniView.Core
 
         /* Gutter Cell (Line Number) */
         .code-gutter {
-            width: 1%; min-width: 44px; padding: 0 10px 0 12px !important;
-            text-align: right; user-select: none; vertical-align: top;
-            color: var(--text-muted); opacity: 0.55; border: none !important;
+            width: var(--code-gutter-width, 48px) !important;
+            min-width: var(--code-gutter-width, 48px) !important;
+            max-width: var(--code-gutter-width, 48px) !important;
+            padding: 0 10px 0 8px !important;
+            text-align: right; user-select: none; vertical-align: top !important;
+            color: var(--text-muted); opacity: 0.65; border: none !important;
             border-right: 1px solid var(--border) !important;
-            background: rgba(0, 0, 0, 0.012); white-space: nowrap;
-            font-size: 12px; line-height: inherit;
+            background: rgba(0, 0, 0, 0.018); white-space: nowrap;
+            font-size: 12px; line-height: 20px !important;
+            box-sizing: border-box !important;
         }
-        body.dark-mode .code-gutter { background: rgba(255, 255, 255, 0.012); }
+        body.dark-mode .code-gutter {
+            background: rgba(255, 255, 255, 0.02);
+            border-right-color: rgba(255, 255, 255, 0.08) !important;
+        }
 
         /* Code Line Cell */
         .code-line {
             padding: 0 14px !important; border: none !important;
-            white-space: pre; vertical-align: top; line-height: inherit;
-            font-family: inherit; font-size: inherit; color: var(--text-main);
+            white-space: pre !important; word-break: normal !important; vertical-align: top !important;
+            line-height: 20px !important; box-sizing: border-box !important;
+            tab-size: var(--code-tab-size, 4);
+            -moz-tab-size: var(--code-tab-size, 4);
+            -webkit-tab-size: var(--code-tab-size, 4);
+            font-family: inherit; font-size: 13px; color: var(--text-main);
             background: transparent !important;
         }
         .code-line code {
             padding: 0 !important; background: transparent !important;
-            font-family: inherit; font-size: inherit; line-height: inherit;
-            white-space: pre; tab-size: 4; border: none !important;
+            font-family: inherit; font-size: inherit; line-height: 20px !important;
+            display: inline-block !important; min-width: 100%;
+            white-space: pre !important; word-break: normal !important; border: none !important;
+            box-shadow: none !important; border-radius: 0 !important; cursor: text !important;
+            tab-size: var(--code-tab-size, 4);
+            -moz-tab-size: var(--code-tab-size, 4);
+            -webkit-tab-size: var(--code-tab-size, 4);
         }
 
         /* Symmetric vertical paddings for first and last line */
@@ -5865,14 +6247,14 @@ namespace NppPlugin.OmniView.Core
                     <button class='btn-pill' onclick='insertMdSnippet(""quote"")' title='引用'>引用</button>`;
             } else if (fmt === 'json') {
                 html = `<span class='editor-tool-badge'>JSON 源码</span>
-                    <button class='btn-pill' onclick='formatEditorJson()' title='按 2 空格美化缩进'>").Append(IconSparkles).Append(@"<span>美化</span></button>
+                    <button class='btn-pill' onclick='formatEditorJson()' title='按 2 空格美化缩进 (Ctrl+Alt+F)'>").Append(IconSparkles).Append(@"<span>美化</span></button>
                     <button class='btn-pill' onclick='minifyEditorJson()' title='压缩为单行'>").Append(IconCompress).Append(@"<span>压缩</span></button>`;
             } else if (fmt === 'yaml') {
                 html = `<span class='editor-tool-badge'>YAML 源码</span>
-                    <button class='btn-pill' onclick='beautifyEditorYaml()' title='美化 YAML 缩进'>").Append(IconSparkles).Append(@"<span>美化</span></button>`;
+                    <button class='btn-pill' onclick='beautifyEditorYaml()' title='美化 YAML 缩进 (Ctrl+Alt+F)'>").Append(IconSparkles).Append(@"<span>美化</span></button>`;
             } else if (fmt === 'svg') {
                 html = `<span class='editor-tool-badge'>SVG 源码</span>
-                    <button class='btn-pill' onclick='formatEditorSvg()' title='规范化格式化 XML'>").Append(IconSparkles).Append(@"<span>美化 XML</span></button>`;
+                    <button class='btn-pill' onclick='formatEditorSvg()' title='规范化格式化 XML (Ctrl+Alt+F)'>").Append(IconSparkles).Append(@"<span>美化 XML</span></button>`;
             } else if (fmt === 'mermaid') {
                 html = `<span class='editor-tool-badge'>Mermaid 源码</span>
                     <button class='btn-pill' onclick='insertMermaidSnippet(""flow"")' title='流程图模板'>流程图</button>
@@ -5880,10 +6262,10 @@ namespace NppPlugin.OmniView.Core
                     <button class='btn-pill' onclick='insertMermaidSnippet(""class"")' title='类图模板'>类图</button>`;
             } else if (fmt === 'html') {
                 html = `<span class='editor-tool-badge'>HTML 源码</span>
-                    <button class='btn-pill' onclick='formatEditorHtml()' title='格式化 HTML 标签'>").Append(IconSparkles).Append(@"<span>美化</span></button>`;
+                    <button class='btn-pill' onclick='formatEditorHtml()' title='格式化 HTML 标签 (Ctrl+Alt+F)'>").Append(IconSparkles).Append(@"<span>美化</span></button>`;
             } else if (fmt === 'xml') {
                 html = `<span class='editor-tool-badge'>XML 源码</span>
-                    <button class='btn-pill' onclick='formatEditorXml()' title='按 2 空格美化 XML 缩进'>").Append(IconSparkles).Append(@"<span>美化</span></button>
+                    <button class='btn-pill' onclick='formatEditorXml()' title='按 2 空格美化 XML 缩进 (Ctrl+Alt+F)'>").Append(IconSparkles).Append(@"<span>美化</span></button>
                     <button class='btn-pill' onclick='copyEntireXml()' title='复制代码内容'>").Append(IconCopy).Append(@"<span>复制</span></button>`;
             } else if (fmt === 'code') {
                 const langLabel = (window.__CODE_LANG__ || 'code').toUpperCase();
@@ -6721,6 +7103,16 @@ namespace NppPlugin.OmniView.Core
 
         // Global shortcuts for editing & Zen Fullscreen
         window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'p' || e.key === 'P')) {
+                e.preventDefault();
+                postAct('TOGGLE_PREVIEW');
+                return;
+            }
+            if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === 'f' || e.key === 'F')) {
+                e.preventDefault();
+                postAct('FORMAT_DOCUMENT');
+                return;
+            }
             if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
                 if (window.__isEditing) {
                     e.preventDefault();
@@ -8961,6 +9353,7 @@ namespace NppPlugin.OmniView.Core
 
             diff:       { name: 'Diff',       iconType: 'git',      color: '#10b981', bgLight: '#f0fdf4', bgDark: '#0d281a', isDiff: true },
             dockerfile: { name: 'Docker',     iconType: 'box',      color: '#0284c7', bgLight: '#f0f9ff', bgDark: '#122c42' },
+            text:       { name: 'Plain Text', iconType: 'file',     color: '#64748b', bgLight: '#f1f5f9', bgDark: '#1e293b' },
             markdown:   { name: 'Markdown',   iconType: 'file',     color: '#4338ca', bgLight: '#eef2ff', bgDark: '#191c3d' }
         };
 
@@ -8973,6 +9366,7 @@ namespace NppPlugin.OmniView.Core
             golang: 'go', rs: 'rust', rb: 'ruby', kt: 'kotlin',
             ps: 'powershell', ps1: 'powershell', posh: 'powershell', pwsh: 'powershell',
             cmd: 'batch', bat: 'batch', shell: 'sh',
+            txt: 'text', plain: 'text', plaintext: 'text',
             yml: 'yaml', htm: 'html', md: 'markdown', docker: 'dockerfile'
         };
 
@@ -9025,6 +9419,7 @@ namespace NppPlugin.OmniView.Core
                 rawLines.pop();
             }
             const lineCount = Math.max(1, rawLines.length);
+            const gutterWidth = lineCount >= 10000 ? 76 : (lineCount >= 1000 ? 66 : (lineCount >= 100 ? 56 : 48));
             let openTags = [];
             let rowsHtml = '';
 
@@ -9063,9 +9458,37 @@ namespace NppPlugin.OmniView.Core
             }
 
             return {
-                tableHtml: `<table class='code-table'><tbody>${rowsHtml}</tbody></table>`,
-                lineCount: lineCount
+                tableHtml: `<table class='code-table'><colgroup><col style='width:${gutterWidth}px;min-width:${gutterWidth}px;max-width:${gutterWidth}px;'><col></colgroup><tbody>${rowsHtml}</tbody></table>`,
+                lineCount: lineCount,
+                gutterWidth: gutterWidth
             };
+        }
+
+        // 自动消除代码块公共缩进 (Dedent)，精准保留内部相对缩进层次
+        function dedentCode(text) {
+            if (!text) return '';
+            const lines = text.split('\n');
+            let commonPrefix = null;
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.trim().length === 0) continue;
+                const match = line.match(/^[ \t]+/);
+                const prefix = match ? match[0] : '';
+                if (commonPrefix === null) {
+                    commonPrefix = prefix;
+                } else {
+                    let j = 0;
+                    while (j < commonPrefix.length && j < prefix.length && commonPrefix[j] === prefix[j]) {
+                        j++;
+                    }
+                    commonPrefix = commonPrefix.substring(0, j);
+                    if (commonPrefix.length === 0) break;
+                }
+            }
+            if (commonPrefix && commonPrefix.length > 0) {
+                return lines.map(l => l.startsWith(commonPrefix) ? l.substring(commonPrefix.length) : l).join('\n');
+            }
+            return text;
         }
 
         function enhanceCodeBlocks() {
@@ -9087,7 +9510,7 @@ namespace NppPlugin.OmniView.Core
                 }
 
                 const info = getLanguageInfo(rawLang);
-                const rawCode = codeEl.textContent || '';
+                const rawCode = dedentCode(codeEl.textContent || '');
 
                 // Syntax Highlighting
                 let highlightedHtml = '';
@@ -9103,6 +9526,8 @@ namespace NppPlugin.OmniView.Core
                     } else {
                         highlightedHtml = highlightPowerShellFallback(rawCode);
                     }
+                } else if (info.key === 'text') {
+                    highlightedHtml = escapeHtml(rawCode);
                 } else if (window.hljs) {
                     try {
                         const targetLang = (info.key !== 'text' && window.hljs.getLanguage && window.hljs.getLanguage(info.key)) ? info.key : undefined;
@@ -9125,6 +9550,7 @@ namespace NppPlugin.OmniView.Core
                 const wrapper = document.createElement('div');
                 wrapper.className = 'code-block-wrapper' + (info.isTerminal ? ' is-terminal' : '') + (info.isDiff ? ' is-diff' : '');
                 wrapper.style.setProperty('--block-accent', info.color);
+                wrapper.style.setProperty('--code-gutter-width', tableRes.gutterWidth + 'px');
                 wrapper.setAttribute('data-raw-code', rawCode);
 
                 const accentBar = document.createElement('div');
@@ -9151,10 +9577,16 @@ namespace NppPlugin.OmniView.Core
                     </div>`;
 
                 const collapseBtn = lineCount >= 8 ? `<button class='code-action-btn code-collapse-btn' onclick='toggleCodeBlock(this)'>收起 ▴</button>` : '';
+                const wrapBtn = `<button class='code-action-btn code-wrap-btn' onclick='toggleCodeWrap(this)' title='切换自动换行'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M3 6h18M3 12h15a3 3 0 1 1 0 6h-4M14 15l-3 3 3 3'/></svg></button>`;
+                const indentBtn = `<button class='code-action-btn code-indent-btn' onclick='cycleCodeIndent(this)' title='切换缩进宽度 (2 / 4 空格)'><span class='tab-size-label'>4空格</span></button>`;
+                const fmtBtn = info.key === 'json' ? `<button class='code-action-btn code-fmt-btn' onclick='formatBlockCode(this)' title='美化并复制 JSON'>美化</button>` : '';
 
                 const headerRight = `
                     <div class='code-header-right'>
                         <span class='code-meta-lines'>${lineCount} 行</span>
+                        ${wrapBtn}
+                        ${indentBtn}
+                        ${fmtBtn}
                         ${collapseBtn}
                         <button class='code-copy-btn' onclick='copyBlockCode(this)'>
                             <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><rect x='9' y='9' width='13' height='13' rx='2'></rect><path d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'></path></svg>
@@ -9177,7 +9609,7 @@ namespace NppPlugin.OmniView.Core
 
             // Inline Code Click-To-Copy
             document.querySelectorAll('.md-body code').forEach(codeEl => {
-                if (codeEl.parentElement && codeEl.parentElement.tagName.toLowerCase() === 'pre') return;
+                if (codeEl.closest('.code-block-wrapper') || codeEl.closest('.code-table') || (codeEl.parentElement && codeEl.parentElement.tagName.toLowerCase() === 'pre')) return;
                 if (codeEl.classList.contains('inline-code-pill')) return;
 
                 codeEl.classList.add('inline-code-pill');
@@ -9187,6 +9619,38 @@ namespace NppPlugin.OmniView.Core
                 });
             });
         }
+
+        window.toggleCodeWrap = function(btn) {
+            const wrapper = btn.closest('.code-block-wrapper');
+            if (!wrapper) return;
+            wrapper.classList.toggle('is-wrapped');
+            const isWrapped = wrapper.classList.contains('is-wrapped');
+            btn.classList.toggle('active', isWrapped);
+        };
+
+        window.cycleCodeIndent = function(btn) {
+            const wrapper = btn.closest('.code-block-wrapper');
+            if (!wrapper) return;
+            const currentTab = parseInt(wrapper.style.getPropertyValue('--code-tab-size') || '4', 10);
+            const nextTab = currentTab === 4 ? 2 : 4;
+            wrapper.style.setProperty('--code-tab-size', nextTab);
+            const textSpan = btn.querySelector('.tab-size-label');
+            if (textSpan) textSpan.textContent = nextTab + '空格';
+            else btn.textContent = nextTab + '空格';
+        };
+
+        window.formatBlockCode = function(btn) {
+            const wrapper = btn.closest('.code-block-wrapper');
+            if (!wrapper) return;
+            const rawCode = wrapper.getAttribute('data-raw-code') || '';
+            try {
+                const parsed = JSON.parse(rawCode);
+                const formatted = JSON.stringify(parsed, null, 2);
+                copyTextToClipboard(formatted, '已格式化并复制 JSON');
+            } catch(e) {
+                showToast('非标准 JSON 无法解析');
+            }
+        };
 
         window.toggleCodeBlock = function(btn) {
             const wrapper = btn.closest('.code-block-wrapper');
@@ -9405,11 +9869,260 @@ namespace NppPlugin.OmniView.Core
             });
         };
 
+        // ==================== 全功能 Markdown 图片全屏画廊 (OmniGallery / Lightbox) ====================
+        let omniLightboxState = {
+            images: [],
+            currentIndex: 0,
+            scale: 1.0,
+            translateX: 0,
+            translateY: 0,
+            isDragging: false,
+            startX: 0,
+            startY: 0,
+            toastTimer: null
+        };
+
+        function showLightboxToast(text) {
+            const toast = document.getElementById('lb-toast');
+            if (!toast) return;
+            toast.textContent = text;
+            toast.classList.add('show');
+            if (omniLightboxState.toastTimer) clearTimeout(omniLightboxState.toastTimer);
+            omniLightboxState.toastTimer = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 1200);
+        }
+
+        function updateLightboxTransform() {
+            const img = document.getElementById('lb-main-img');
+            const zoomText = document.getElementById('lb-zoom-text');
+            if (!img) return;
+            const pct = Math.round(omniLightboxState.scale * 100);
+            img.style.transform = 'translate(' + omniLightboxState.translateX + 'px, ' + omniLightboxState.translateY + 'px) scale(' + omniLightboxState.scale + ')';
+            if (zoomText) zoomText.textContent = pct + '%';
+        }
+
+        window.openImageLightbox = function(target) {
+            collectMarkdownImages();
+            if (omniLightboxState.images.length === 0) return;
+
+            let index = 0;
+            if (typeof target === 'number') {
+                index = target;
+            } else if (target && target.src) {
+                const found = omniLightboxState.images.findIndex(item => item.src === target.src);
+                if (found >= 0) index = found;
+            } else if (typeof target === 'string') {
+                const found = omniLightboxState.images.findIndex(item => item.src === target);
+                if (found >= 0) index = found;
+            }
+            if (index < 0 || index >= omniLightboxState.images.length) index = 0;
+
+            omniLightboxState.currentIndex = index;
+            omniLightboxState.scale = 1.0;
+            omniLightboxState.translateX = 0;
+            omniLightboxState.translateY = 0;
+
+            const modal = document.getElementById('omni-lightbox');
+            if (modal) {
+                modal.style.display = 'flex';
+                renderLightboxCurrent();
+                document.addEventListener('keydown', handleLightboxKeydown);
+            }
+        };
+
+        window.closeImageLightbox = function() {
+            const modal = document.getElementById('omni-lightbox');
+            if (modal) {
+                modal.style.display = 'none';
+                document.removeEventListener('keydown', handleLightboxKeydown);
+            }
+        };
+
+        function renderLightboxCurrent() {
+            const item = omniLightboxState.images[omniLightboxState.currentIndex];
+            if (!item) return;
+
+            const img = document.getElementById('lb-main-img');
+            const counter = document.getElementById('lb-counter');
+            const title = document.getElementById('lb-title');
+            const btnPrev = document.getElementById('lb-nav-prev');
+            const btnNext = document.getElementById('lb-nav-next');
+
+            if (img) {
+                img.src = item.src;
+                img.alt = item.alt || '';
+            }
+            if (counter) {
+                counter.textContent = (omniLightboxState.currentIndex + 1) + ' / ' + omniLightboxState.images.length;
+            }
+            if (title) {
+                title.textContent = item.title || item.alt || '全屏图像预览';
+                title.title = title.textContent;
+            }
+
+            if (btnPrev) {
+                btnPrev.classList.toggle('disabled', omniLightboxState.currentIndex === 0);
+            }
+            if (btnNext) {
+                btnNext.classList.toggle('disabled', omniLightboxState.currentIndex === omniLightboxState.images.length - 1);
+            }
+
+            omniLightboxState.scale = 1.0;
+            omniLightboxState.translateX = 0;
+            omniLightboxState.translateY = 0;
+            updateLightboxTransform();
+        }
+
+        window.stepLightboxImage = function(step) {
+            const nextIdx = omniLightboxState.currentIndex + step;
+            if (nextIdx >= 0 && nextIdx < omniLightboxState.images.length) {
+                omniLightboxState.currentIndex = nextIdx;
+                renderLightboxCurrent();
+            }
+        };
+
+        window.zoomLightboxImage = function(delta) {
+            let nextScale = Math.round((omniLightboxState.scale + delta) * 100) / 100;
+            if (nextScale < 0.25) nextScale = 0.25;
+            if (nextScale > 5.0) nextScale = 5.0;
+            omniLightboxState.scale = nextScale;
+            updateLightboxTransform();
+            showLightboxToast(Math.round(nextScale * 100) + '%');
+        };
+
+        window.resetLightboxZoom = function() {
+            omniLightboxState.scale = 1.0;
+            omniLightboxState.translateX = 0;
+            omniLightboxState.translateY = 0;
+            updateLightboxTransform();
+            showLightboxToast('自适应 (100%)');
+        };
+
+        window.toggleLightboxOriginalSize = function() {
+            const img = document.getElementById('lb-main-img');
+            if (!img) return;
+            if (omniLightboxState.scale === 1.0) {
+                omniLightboxState.scale = 2.0;
+                showLightboxToast('放大 (200%)');
+            } else {
+                omniLightboxState.scale = 1.0;
+                omniLightboxState.translateX = 0;
+                omniLightboxState.translateY = 0;
+                showLightboxToast('自适应 (100%)');
+            }
+            updateLightboxTransform();
+        };
+
+        window.handleLightboxWheel = function(e) {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 0.15 : -0.15;
+            zoomLightboxImage(delta);
+        };
+
+        window.startLightboxDrag = function(e) {
+            if (e.target.closest('.lb-header') || e.target.closest('.lb-nav-btn')) return;
+            omniLightboxState.isDragging = true;
+            omniLightboxState.startX = e.clientX - omniLightboxState.translateX;
+            omniLightboxState.startY = e.clientY - omniLightboxState.translateY;
+
+            const stage = document.getElementById('lb-stage');
+            if (stage) stage.classList.add('is-dragging');
+
+            const onMouseMove = (ev) => {
+                if (!omniLightboxState.isDragging) return;
+                omniLightboxState.translateX = ev.clientX - omniLightboxState.startX;
+                omniLightboxState.translateY = ev.clientY - omniLightboxState.startY;
+                updateLightboxTransform();
+            };
+
+            const onMouseUp = () => {
+                omniLightboxState.isDragging = false;
+                if (stage) stage.classList.remove('is-dragging');
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        };
+
+        function handleLightboxKeydown(e) {
+            if (e.key === 'Escape') {
+                closeImageLightbox();
+            } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                stepLightboxImage(-1);
+            } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                stepLightboxImage(1);
+            } else if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+                zoomLightboxImage(0.25);
+            } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
+                zoomLightboxImage(-0.25);
+            } else if (e.key === '0' || e.key === ' ' || e.code === 'Numpad0') {
+                resetLightboxZoom();
+            }
+        }
+
+        function collectMarkdownImages() {
+            const list = [];
+            document.querySelectorAll('.md-body img').forEach((img, idx) => {
+                if (img.closest('.code-block-wrapper') || img.closest('.code-table') || img.classList.contains('lb-main-img')) return;
+                // 排除带超链接的图片，保持原生超链接直达
+                if (img.closest('a')) return;
+
+                let title = img.getAttribute('alt') || '';
+                const fig = img.closest('figure');
+                if (fig) {
+                    const cap = fig.querySelector('figcaption');
+                    if (cap) title = cap.textContent || title;
+                }
+                img.setAttribute('data-lb-index', list.length);
+                list.push({
+                    src: img.src,
+                    alt: img.getAttribute('alt') || '',
+                    title: title
+                });
+            });
+            omniLightboxState.images = list;
+        }
+
+        function enhanceMarkdownImages() {
+            collectMarkdownImages();
+            document.querySelectorAll('.md-body img').forEach(img => {
+                if (img.closest('.md-img-card') || img.closest('.code-block-wrapper') || img.classList.contains('lb-main-img')) return;
+
+                // 核心保障：如果图片在 <a> 标签内，保持原生超链接交互与跳转，绝不拦截点击，绝不弹灯箱！
+                if (img.closest('a')) {
+                    img.style.cursor = 'pointer';
+                    return;
+                }
+
+                const parent = img.parentElement;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'md-img-card';
+
+                if (!img.getAttribute('title')) {
+                    img.setAttribute('title', '点击全屏查看大图 (支持滚轮缩放 / 拖拽平移 / 左右翻页 / ESC 退出)');
+                }
+
+                img.addEventListener('click', (e) => {
+                    if (img.closest('a')) return;
+                    openImageLightbox(img);
+                });
+
+                if (parent) {
+                    parent.insertBefore(wrapper, img);
+                    wrapper.appendChild(img);
+                }
+            });
+        }
+
         function renderEnhancements() {
             enhanceCodeBlocks();
             enhanceTaskLists();
             enhanceMarkdownAlerts();
             renderMathBlocks();
+            enhanceMarkdownImages();
             if (typeof mermaid !== 'undefined') {
                 try {
                     mermaid.initialize({
@@ -10377,7 +11090,15 @@ namespace NppPlugin.OmniView.Core
         });
 
         // ==================== INCREMENTAL UPDATE APIS ====================
-        window.updateMarkdownContent = function(newHtml, statusText, rawDoc) {
+        window.updateMarkdownContent = function(newHtml, statusText, rawDoc, newBaseHref) {
+            if (newBaseHref) {
+                let baseEl = document.querySelector('base');
+                if (!baseEl) {
+                    baseEl = document.createElement('base');
+                    document.head.prepend(baseEl);
+                }
+                baseEl.href = newBaseHref;
+            }
             if (rawDoc !== undefined) window.__RAW_DOC_CONTENT__ = rawDoc;
             if (window.__isEditing) return;
             const c = document.getElementById('md-container');
@@ -10952,6 +11673,42 @@ namespace NppPlugin.OmniView.Core
             window.finishLoader();
         });
     </script>
+    <!-- OmniView 全功能 Markdown 图片画廊全屏灯箱 (OmniGallery / Lightbox) -->
+    <div id='omni-lightbox' class='omni-lightbox' style='display: none;'>
+        <div class='lb-backdrop' onclick='closeImageLightbox()'></div>
+        <div class='lb-header'>
+            <div class='lb-header-left'>
+                <span class='lb-counter' id='lb-counter'>1 / 1</span>
+                <span class='lb-title' id='lb-title'>图像大图预览</span>
+            </div>
+            <div class='lb-header-right'>
+                <button class='lb-tool-btn' onclick='zoomLightboxImage(-0.25)' title='缩小 (- / 滚轮向下)'>
+                    <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/><line x1='8' y1='11' x2='14' y2='11'/></svg>
+                </button>
+                <span class='lb-zoom-text' id='lb-zoom-text' onclick='resetLightboxZoom()' title='点击还原 100% (快捷键 0)'>100%</span>
+                <button class='lb-tool-btn' onclick='zoomLightboxImage(0.25)' title='放大 (+ / 滚轮向上)'>
+                    <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><circle cx='11' cy='11' r='8'/><line x1='21' y1='21' x2='16.65' y2='16.65'/><line x1='11' y1='8' x2='11' y2='14'/><line x1='8' y1='11' x2='14' y2='11'/></svg>
+                </button>
+                <button class='lb-tool-btn' onclick='toggleLightboxOriginalSize()' title='在自适应屏幕与原始尺寸 (1:1) 间切换'>
+                    <svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'><path d='M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8'/><path d='M3 3v5h5'/></svg>
+                </button>
+                <div class='lb-divider'></div>
+                <button class='lb-tool-btn lb-close-btn' onclick='closeImageLightbox()' title='关闭全屏展示 (ESC / 点击背景)'>
+                    <svg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><line x1='18' y1='6' x2='6' y2='18'/><line x1='6' y1='6' x2='18' y2='18'/></svg>
+                </button>
+            </div>
+        </div>
+        <button class='lb-nav-btn prev' id='lb-nav-prev' onclick='stepLightboxImage(-1)' title='上一张 (快捷键 ←)'>
+            <svg width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><polyline points='15 18 9 12 15 6'/></svg>
+        </button>
+        <button class='lb-nav-btn next' id='lb-nav-next' onclick='stepLightboxImage(1)' title='下一张 (快捷键 →)'>
+            <svg width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><polyline points='9 18 15 12 9 6'/></svg>
+        </button>
+        <div class='lb-stage' id='lb-stage' onwheel='handleLightboxWheel(event)' onmousedown='startLightboxDrag(event)'>
+            <img id='lb-main-img' class='lb-main-img' src='' alt='' draggable='false' />
+        </div>
+        <div class='lb-toast' id='lb-toast'>100%</div>
+    </div>
 </body>
 </html>");
 

@@ -30,9 +30,17 @@
   - [3.13 自动化构建与分发脚本 (Packaging & Build)](#313-自动化构建与分发脚本-packaging--build)
   - [3.14 HTML & CSS / SCSS (前端样式)](#314-html--css--scss-前端样式)
   - [3.15 JSON & YAML 配置展示](#315-json--yaml-配置展示)
+  - [3.16 纯文本与树状层级结构 (Plain Text / ASCII Tree / Indentation)](#316-纯文本与树状层级结构-plain-text--ascii-tree--indentation)
+  - [3.17 嵌套公共前导缩进自动消除 (Dedent & Relative Indent Preservation)](#317-嵌套公共前导缩进自动消除-dedent--relative-indent-preservation)
 - [4. KaTeX 数学公式全景覆盖 (Mathematical Formulas)](#4-katex-数学公式全景覆盖-mathematical-formulas)
 - [5. GFM 复杂数据对齐表格 (Tables)](#5-gfm-复杂数据对齐表格-tables)
 - [6. 嵌入式 Mermaid 架构图 (Embedded Diagrams)](#6-嵌入式-mermaid-架构图-embedded-diagrams)
+- [7. 丰富多媒体、图片引用与超链接体系 (Images & Hyperlinks)](#7-丰富多媒体图片引用与超链接体系-images--hyperlinks)
+  - [7.1 网络高清图片引用与自适应居中](#71-网络高清图片引用与自适应居中)
+  - [7.2 本地相对路径图片与图标引用](#72-本地相对路径图片与图标引用)
+  - [7.3 Base64 / SVG 矢量内联图片与微型位图](#73-base64--svg-矢量内联图片与微型位图)
+  - [7.4 可点击交互图片卡片 (Image Links)](#74-可点击交互图片卡片-image-links)
+  - [7.5 丰富 URL 链接矩阵与外链指示](#75-丰富-url-链接矩阵与外链指示)
 
 ---
 
@@ -438,6 +446,8 @@ $border-radius: 8px;
 ```
 
 ### 3.15 JSON & YAML 配置展示
+
+#### 3.15.1 标准完整 JSON 对象
 ```json
 {
   "plugin": "NppOmniView",
@@ -450,6 +460,20 @@ $border-radius: 8px;
 }
 ```
 
+#### 3.15.2 局部配置片段 JSON (默认初次渲染即自动阶梯缩进，贴齐左边缘)
+```json
+   "ConnectionStrings": {
+     "SqlServer": "Server=localhost;Database=nsbAms;User Id=sa;Password=YourPassword;TrustServerCertificate=True;"
+   },
+   "Kestrel": {
+     "Endpoints": {
+       "Http": {
+         "Url": "http://*:5100"
+       }
+     }
+   }
+```
+
 ```yaml
 plugin:
   name: NppOmniView
@@ -459,6 +483,55 @@ plugin:
     - katex_math: true
     - mermaid_graph: true
 ```
+
+### 3.16 纯文本与树状层级结构 (Plain Text / ASCII Tree / Indentation)
+
+针对无语法着色需求的纯文本、项目目录树、调用堆栈或日志流，NppOmniView 采用等宽中立风格呈现，确保每一级相对空格缩进绝不丢失：
+
+```text
+rqf/ (项目根目录)
+├── db/ (数据层方案)
+│   ├── schema.sql
+│   └── seed.sql
+├── docs/ (规范文档)
+│   ├── api.md
+│   └── deployment.md
+└── src/ (源码核心)
+    ├── controllers/
+    │   └── auth.controller.ts
+    └── index.ts
+```
+
+### 3.17 嵌套公共前导缩进自动消除 (Dedent & Relative Indent Preservation)
+
+无论是从外部代码库直接粘贴、还是嵌套在多层有序/无序列表项内部的代码块，NppOmniView 均会自动分析并去除全局多余的公共前导缩进（Dedent），同时精准维持各行代码的相对阶梯层级：
+
+1. 嵌套在有序列表项第 1 级的代码块（源码整体缩进 3 空格）：
+
+   ```json
+   "ConnectionStrings": {
+     "SqlServer": "Server=localhost;Database=nsbAms;User Id=sa;Password=YourPassword;TrustServerCertificate=True;"
+   },
+   "Kestrel": {
+     "Endpoints": {
+       "Http": {
+         "Url": "http://*:5100"
+       }
+     }
+   }
+   ```
+
+
+2. 嵌套在无序列表项内的配置代码块：
+
+   - 系统启动参数：
+     ```text
+     [Runtime]
+         Mode = Production
+         MaxConcurrency = 64
+         TimeoutMs = 5000
+             SubModuleTrace = Verbose
+     ```
 
 ---
 
@@ -515,6 +588,7 @@ $$f(n) = \begin{cases}
 
 ## 6. 嵌入式 Mermaid 架构图 (Embedded Diagrams)
 
+
 ```mermaid
 flowchart TD
     subgraph Host[Notepad++ 宿主进程]
@@ -538,3 +612,86 @@ flowchart TD
     WebView -.->|双击修改内容| Editor
     Editor -.->|单次撤销保护事务写回| Scintilla
 ```
+
+
+---
+
+## 7. 丰富多媒体、图片引用与超链接体系 (Images & Hyperlinks)
+
+
+### 7.1 网络高清图片引用与自适应居中
+
+NppOmniView 为 Markdown 中的图片提供了工业级的高质感视觉封装：自带微圆角、柔和边框悬浮投影与自适应宽度限制，在暗黑模式下自动进行防眩光微调：
+
+![Google Chromium & WebView2 现代架构](https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=900&auto=format&fit=crop&q=80)
+
+<figure>
+  <img src="https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=900&auto=format&fit=crop&q=80" alt="高效开发环境与高分辨率屏幕适配" />
+  <figcaption>图 7-1：基于 WebView2 现代硬件加速的高性能实时渲染开发视口</figcaption>
+</figure>
+
+### 7.2 本地相对路径图片与图标引用
+
+NppOmniView 自动注入当前打开文档的绝对路径作为 `<base href>` 锚点，无论是已保存磁盘文件还是新建未保存缓冲区，均能原生无损解析相对路径资产：
+
+- **本地矢量架构拓扑图（相对路径引用：`./assets/omniview_architecture.svg`）**：
+
+<figure>
+  <img src="./assets/omniview_architecture.svg" alt="NppOmniView 本地架构示意图" />
+  <figcaption>图 7-2：Notepad++ 宿主与 OmniView 桥接层无锁渲染拓扑图（本地矢量资产，点击直接全屏画廊展开）</figcaption>
+</figure>
+
+- **本地高清组件认证位图（相对路径引用：`./assets/sample_badge.png`）**：
+
+<figure>
+  <img src="./assets/sample_badge.png" alt="NppOmniView 本地静态资源读取状态卡片" />
+  <figcaption>图 7-3：本地真实 PNG 位图资产（已通过 https://local.doc/ 虚拟主机与 WebResourceRequested 无感穿透加载）</figcaption>
+</figure>
+
+> 💡 **智能相对路径与绝对路径全解析**：NppOmniView 自动注入当前打开文件的完整绝对路径作为 `<base href>` 锚点，无论是相对路径（如 `./assets/...`）还是本机物理绝对路径（如 `C:\...` 或 `file:///C:/...`），即使在未保存的新建缓冲区中也能稳健解析！
+
+### 7.3 Base64 / SVG 矢量内联图片与微型位图
+
+无需任何外部静态资产文件，支持通过标准 Data URI 嵌入无损矢量 SVG 与微型位图：
+
+- **标准 Base64 矢量 SVG 徽标**：
+![OmniView 2.2 矢量徽标](data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPScxNjAnIGhlaWdodD0nMzYnIHZpZXdCb3g9JzAgMCAxNjAgMzYnPjxyZWN0IHdpZHRoPScxNjAnIGhlaWdodD0nMzYnIHJ4PSc2JyBmaWxsPScjMjU2M2ViJy8+PHRleHQgeD0nNTAlJyB5PSc1MCUnIGRvbWluYW50LWJhc2VsaW5lPSdtaWRkbGUnIHRleHQtYW5jaG9yPSdtaWRkbGUnIGZpbGw9JyNmZmZmZmYnIGZvbnQtZmFtaWx5PSdzYW5zLXNlcmlmJyBmb250LXdlaWdodD0nYm9sZCcgZm9udC1zaXplPScxMyc+4piFIE9tbmlWaWV3IDIuMiDimIU8L3RleHQ+PC9zdmc+)
+
+- **原生 UTF-8 矢量 Data URI (系统自动容错转换)**：
+![OmniView 动态徽标](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='36' viewBox='0 0 160 36'><rect width='160' height='36' rx='6' fill='%2310b981'/><text x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23ffffff' font-family='sans-serif' font-weight='bold' font-size='13'>✔ 实时高精度渲染</text></svg>)
+
+- **内联 Base64 PNG 微型状态像素图（支持点击全屏后滚轮无损放大 500% 检视微像素）**：
+![16x16 状态指示点](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAAEAAAAAA0YuksAAAAXklEQVQ4y2NgGAWDEvwnxQwG/0kxA0XGYAAYG58hzBhZ82AGkGX+Y0shvIeR2f/RwxhZ838GBgYkewfGBmhhwA9QjYyMjGgOx2c4G675P4mGY9j7490Ao3DwAwDY+D8R7q/aEwAAAABJRU5ErkJggg==)
+
+- **高分辨率内联 Base64 矢量卡片（直接点击即可无缝唤起全屏剧院画廊）**：
+![OmniView 实时渲染引擎状态看板](data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHdpZHRoPSc3MjAnIGhlaWdodD0nMjAwJyB2aWV3Qm94PScwIDAgNzIwIDIwMCc+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSdnMScgeDE9JzAlJyB5MT0nMCUnIHgyPScxMDAlJyB5Mj0nMTAwJSc+PHN0b3Agb2Zmc2V0PScwJScgc3RvcC1jb2xvcj0nIzBhMGYxZCcvPjxzdG9wIG9mZnNldD0nMTAwJScgc3RvcC1jb2xvcj0nIzFlMjkzYicvPjwvbGluZWFyR3JhZGllbnQ+PC9kZWZzPjxyZWN0IHdpZHRoPSc3MjAnIGhlaWdodD0nMjAwJyByeD0nMTInIGZpbGw9J3VybCgjZzEpJyBzdHJva2U9JyMzYjgyZjYnIHN0cm9rZS13aWR0aD0nMS41Jy8+PHRleHQgeD0nMzYnIHk9JzQwJyBmaWxsPScjMzhiZGY4JyBmb250LWZhbWlseT0nLWFwcGxlLXN5c3RlbSwgc2Fucy1zZXJpZicgZm9udC1zaXplPScxNScgZm9udC13ZWlnaHQ9J2JvbGQnPuKchSBCYXNlNjQgLyBEYXRhIFVSSSDlm77niYfop4bop4nljZHor4HljZHot68gW09LXTwvdGV4dD48dGV4dCB4PSczNicgeT0nNzAnIGZpbGw9JyNmOGZhZmMnIGZvbnQtZmFtaWx5PSdzYW5zLXNlcmlmJyBmb250LXNpemU9JzEzJz7ml6DpnIDlpJbpqazmqKExMDAl5YaF6IGU77yM54K55Ye75Y+v55u05o6l5ZG85Ye65YWo5bGP55S75buK5bm25pSv5oyB5rua6L2u5peg5o2f57yp5pS+PC90ZXh0PjxyZWN0IHg9JzM2JyB5PSc5NScgd2lkdGg9JzY0OCcgaGVpZ2h0PSc4MCcgcng9JzgnIGZpbGw9JyMxZTMxNGMnIHN0cm9rZT0nIzMzNDE1NScvPjx0ZXh0IHg9JzU0JyB5PScxMzAnIGZpbGw9JyMxMGI5ODEnIGZvbnQtZmFtaWx5PSdtb25vc3BhY2UnIGZvbnQtc2l6ZT0nMTMnPmRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsLi4uICjpppbmrKHmnoTpmLvpqozor4EpPC90ZXh0Pjx0ZXh0IHg9JzU0JyB5PScxNTUnIGZpbGw9JyM5NGEzYjgnIGZvbnQtZmFtaWx5PSdzYW5zLXNlcmlmJyBmb250LXNpemU9JzEyJz7lhajnm5jnm5ZsaWdodGJveOS4iuS4gOW8oO+8j+S4i+S4gOW8oOa8q+a4uO+8jOaUr+aMgeWvuei0qOeahOaYr+aJgOacieWbvueJh+S4gOihtOWQjOS7gTwvdGV4dD48L3N2Zz4=)
+
+### 7.4 可点击交互图片卡片 (Image Links)
+
+将图片包裹在超链接中，实现可点击直达目标网页或资源的交互徽章：
+
+[![Notepad++ 官方项目](https://img.shields.io/badge/Notepad%2B%2B-Official_Release-brightgreen?style=for-the-badge&logo=notepad%2B%2B)](https://notepad-plus-plus.org/)
+[![.NET 8.0 SDK](https://img.shields.io/badge/.NET-8.0_LTS-blueviolet?style=for-the-badge&logo=dotnet)](https://dotnet.microsoft.com/)
+[![WebView2 Core](https://img.shields.io/badge/Microsoft-WebView2_Edge-0078D4?style=for-the-badge&logo=microsoftedge)](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
+
+### 7.5 丰富 URL 链接矩阵与外链指示
+
+NppOmniView 针对不同协议与类型的 URL 进行了专门的视觉引导（外部网页自动呈现精致现代矢量外链指引图标）：
+
+| 链接类型 | 语法示例 | 渲染效果 | 交互行为 |
+| :--- | :--- | :--- | :--- |
+| **外部 HTTPS 链接** | `[GitHub 仓库](https://github.com/)` | [GitHub 仓库](https://github.com/) | 默认在系统默认浏览器中安全打开 |
+| **技术文档站点** | `[MDN Web 文档](https://developer.mozilla.org/)` | [MDN Web 文档](https://developer.mozilla.org/) | 支持平滑外链指示徽章 |
+| **文档内部锚点链接** | `[直达第一章](#1-格式化排版与呼出警告块-typography--callouts)` | [直达第一章](#1-格式化排版与呼出警告块-typography--callouts) | 丝滑平滑滚动定位并伴有脉冲光晕 |
+| **电子邮箱直达** | `[联系作者](mailto:support@example.com)` | [联系作者](mailto:support@example.com) | 调起本机默认邮件客户端 |
+| **行内裸露 URL 自动转换** | `https://microsoft.com` | https://microsoft.com | 自动识别为可点击超链接 |
+
+### 7.6 全功能全屏画廊灯箱 (OmniGallery / Lightbox)
+
+将鼠标悬停在上方任何内容图片上（无论是本地图、矢量 SVG 还是网络高清大图），光标均会自动呈现放大镜（`zoom-in`）交互手势，零悬浮按钮遮挡，直接点击图片任意区域即可全屏展开：
+
+- **极简沉浸式全屏剧院**：直接点击图片，即可唤出毛玻璃暗色遮罩的全屏画廊视口，画面纯净零视觉遮挡；
+- **全方位平滑缩放与拖拽**：支持顶部工具栏 `+` / `-` 缩放、鼠标滚轮上下滚动无损缩放、点击缩放胶囊重置 100%、以及按住鼠标左键自由平移大图；
+- **画廊上一张 / 下一张无缝漫游**：自动将文档中所有图文组织为画廊，点击侧边悬浮箭头或敲击键盘左右键（<kbd>←</kbd>、<kbd>→</kbd>）前后快速切换；
+- **优雅退出闭环**：敲击键盘 <kbd>ESC</kbd> 或点击暗色背景，随时丝滑退出全屏。
+

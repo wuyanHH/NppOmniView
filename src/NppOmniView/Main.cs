@@ -16,7 +16,7 @@ namespace NppPlugin.OmniView
         /// <summary>
         /// NppOmniView 官方正式发布版本号 (符合语义化版本 SemVer 规范与 nppPluginList 标准)
         /// </summary>
-        public const string PluginVersion = "1.1.0";
+        public const string PluginVersion = "1.1.2";
 
         private static PreviewDockForm _previewForm = null;
         private static Timer _debounceTimer;
@@ -153,7 +153,7 @@ namespace NppPlugin.OmniView
 
                 FuncItem item0 = new FuncItem
                 {
-                    _itemName = "\u6253\u5F00/\u5173\u95ED NppOmniView \u5168\u80FD\u89C6\u56FE",
+                    _itemName = "\u6253\u5F00/\u5173\u95ED NppOmniView \u5168\u80FD\u89C6\u56FE (Ctrl+Alt+P)",
                     _pFunc = Marshal.GetFunctionPointerForDelegate(_toggleDelegate),
                     _cmdID = 0,
                     _init2Check = false,
@@ -162,7 +162,7 @@ namespace NppPlugin.OmniView
 
                 FuncItem item1 = new FuncItem
                 {
-                    _itemName = "\u4E00\u952E\u7F8E\u5316/\u683C\u5F0F\u5316\u5F53\u524D\u6587\u6863",
+                    _itemName = "\u4E00\u952E\u7F8E\u5316/\u683C\u5F0F\u5316\u5F53\u524D\u6587\u6863 (Ctrl+Alt+F)",
                     _pFunc = Marshal.GetFunctionPointerForDelegate(_formatDelegate),
                     _cmdID = 1,
                     _init2Check = false,
@@ -286,7 +286,8 @@ namespace NppPlugin.OmniView
             }
             else if (code == (uint)SciMsg.SCN_UPDATEUI)
             {
-                if ((notification.Updated & 0x08) != 0)
+                // 监听垂直滚动 (SC_UPDATE_V_SCROLL) 以及可能改变视口可见首行的选区光标移动 (SC_UPDATE_SELECTION) 与水平滚动
+                if ((notification.Updated & (SciUpdate.SC_UPDATE_V_SCROLL | SciUpdate.SC_UPDATE_SELECTION | SciUpdate.SC_UPDATE_H_SCROLL)) != 0)
                 {
                     // 若在 220ms 内由预览视口反向驱动滚动，则屏蔽向预览的回发，避免死循环震荡
                     if ((DateTime.UtcNow - _lastPreviewDrivenScrollTime).TotalMilliseconds < 220)
@@ -523,6 +524,18 @@ namespace NppPlugin.OmniView
 
         private static void HandleWebViewAction(string action)
         {
+            if (action == "TOGGLE_PREVIEW")
+            {
+                TogglePreviewPanel();
+                return;
+            }
+
+            if (action == "FORMAT_DOCUMENT")
+            {
+                SmartFormatCurrentBuffer();
+                return;
+            }
+
             if (action == "TOGGLE_AUTO_COLLAPSE")
             {
                 ToggleAutoCollapse();

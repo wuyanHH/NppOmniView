@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 360" width="800" height="360">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="cardGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+    <linearGradient id="cardGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#065f46" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+    <linearGradient id="cardGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#581c87" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.45" />
+    </filter>
+  </defs>
+
+  <rect width="800" height="360" rx="16" fill="url(#bgGrad)" stroke="#334155" stroke-width="1.5" />
+
+  <!-- Title Banner -->
+  <text x="400" y="46" text-anchor="middle" fill="#f8fafc" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="20" font-weight="700" letter-spacing="1">NppOmniView 本地实时渲染多核流水线架构</text>
+  <text x="400" y="74" text-anchor="middle" fill="#94a3b8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="12">基于 Scintilla 原生缓冲区推流与 Microsoft WebView2 硬件加速预览容器</text>
+
+  <!-- Left Card: Host -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="110" width="200" height="180" rx="12" fill="url(#cardGrad1)" stroke="#60a5fa" stroke-width="1" />
+    <text x="140" y="148" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="15" font-weight="bold">Notepad++ Host</text>
+    <line x1="60" y1="162" x2="220" y2="162" stroke="#93c5fd" stroke-opacity="0.4" />
+    <text x="140" y="190" text-anchor="middle" fill="#e0f2fe" font-family="sans-serif" font-size="12">Scintilla 文本缓冲区</text>
+    <text x="140" y="215" text-anchor="middle" fill="#e0f2fe" font-family="sans-serif" font-size="12">高精度双向行号标定</text>
+    <text x="140" y="240" text-anchor="middle" fill="#e0f2fe" font-family="sans-serif" font-size="12">无阻塞打字即时防抖</text>
+    <text x="140" y="265" text-anchor="middle" fill="#bfdbfe" font-family="sans-serif" font-size="11">C# .NET 4.8 插件运行时</text>
+  </g>
+
+  <!-- Middle Card: Core Bridge -->
+  <g filter="url(#shadow)">
+    <rect x="300" y="110" width="200" height="180" rx="12" fill="url(#cardGrad2)" stroke="#34d399" stroke-width="1" />
+    <text x="400" y="148" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="15" font-weight="bold">OmniBridge 路由层</text>
+    <line x1="320" y1="162" x2="480" y2="162" stroke="#a7f3d0" stroke-opacity="0.4" />
+    <text x="400" y="190" text-anchor="middle" fill="#ecfdf5" font-family="sans-serif" font-size="12">7 维格式动态探测</text>
+    <text x="400" y="215" text-anchor="middle" fill="#ecfdf5" font-family="sans-serif" font-size="12">LaTeX / KaTeX 隔离保护</text>
+    <text x="400" y="240" text-anchor="middle" fill="#ecfdf5" font-family="sans-serif" font-size="12">CommonMark 规范扩展</text>
+    <text x="400" y="265" text-anchor="middle" fill="#a7f3d0" font-family="sans-serif" font-size="11">双向撤销回写事务保护</text>
+  </g>
+
+  <!-- Right Card: WebView2 -->
+  <g filter="url(#shadow)">
+    <rect x="560" y="110" width="200" height="180" rx="12" fill="url(#cardGrad3)" stroke="#c084fc" stroke-width="1" />
+    <text x="660" y="148" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="15" font-weight="bold">WebView2 视口引擎</text>
+    <line x1="580" y1="162" x2="740" y2="162" stroke="#e9d5ff" stroke-opacity="0.4" />
+    <text x="660" y="190" text-anchor="middle" fill="#faf5ff" font-family="sans-serif" font-size="12">GPU 硬件加速实时渲染</text>
+    <text x="660" y="215" text-anchor="middle" fill="#faf5ff" font-family="sans-serif" font-size="12">代码块表格物理等宽缩进</text>
+    <text x="660" y="240" text-anchor="middle" fill="#faf5ff" font-family="sans-serif" font-size="12">全屏交互画廊与平滑缩放</text>
+    <text x="660" y="265" text-anchor="middle" fill="#e9d5ff" font-family="sans-serif" font-size="11">双向丝滑平滑同步滚动</text>
+  </g>
+
+  <!-- Connecting Arrows -->
+  <path d="M 245 200 L 295 200" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" marker-end="url(#arrowBlue)" />
+  <polygon points="295,200 285,194 285,206" fill="#38bdf8" />
+
+  <path d="M 505 200 L 555 200" stroke="#34d399" stroke-width="3" stroke-linecap="round" />
+  <polygon points="555,200 545,194 545,206" fill="#34d399" />
+
+  <!-- Bottom Tag -->
+  <text x="400" y="325" text-anchor="middle" fill="#64748b" font-family="monospace" font-size="11">Architecture Topology © 2026 NppOmniView High-Performance Engine</text>
+</svg>

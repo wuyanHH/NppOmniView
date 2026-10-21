@@ -170,6 +170,29 @@ namespace NppPlugin.OmniView.Core
         public const uint DWS_DF_CONT_RIGHT = 0x10000000;
     }
 
+    /// <summary>
+    /// Scintilla SCN_UPDATEUI 通知的 updated 掩码常量
+    /// </summary>
+    public static class SciUpdate
+    {
+        /// <summary>
+        /// 内容发生变动
+        /// </summary>
+        public const int SC_UPDATE_CONTENT = 0x01;
+        /// <summary>
+        /// 选区或光标位置改变
+        /// </summary>
+        public const int SC_UPDATE_SELECTION = 0x02;
+        /// <summary>
+        /// 垂直视口滚动
+        /// </summary>
+        public const int SC_UPDATE_V_SCROLL = 0x04;
+        /// <summary>
+        /// 水平视口滚动
+        /// </summary>
+        public const int SC_UPDATE_H_SCROLL = 0x08;
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct NppData
     {

@@ -2,10 +2,11 @@
   "$schema": "https://raw.githubusercontent.com/notepad-plus-plus/nppPluginList/master/src/plugins.schema.json",
   "folder-name": "NppOmniView",
   "display-name": "NppOmniView (全能视图)",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "npp-compatible-versions": "[8.0,]",
-  "repository": "https://github.com/wuyanHH/NppOmniView",
+  "id-64": "41570b281765b2163aa59ddd5b478d75bc31619d3677b34e22779133727c924a",
+  "repository-x64": "https://github.com/wuyanHH/NppOmniView/releases/download/v1.1.2/NppOmniView-v1.1.2-x64.zip",
+  "homepage": "https://github.com/wuyanHH/NppOmniView",
   "description": "现代工业级多格式实时渲染预览与双向就地编辑 Notepad++ 插件。专注于 Markdown、JSON、CSV/TSV、SVG、YAML、Mermaid、HTML、XML 的高保真可视化呈现与双向就地编辑；代码与纯文本智能休眠避免重复镜像。0ms 击键即时反馈与暗黑模式零白闪。",
-  "author": "NppOmniView Contributors",
-  "homepage": "https://github.com/wuyanHH/NppOmniView"
+  "author": "NppOmniView Contributors"
 }

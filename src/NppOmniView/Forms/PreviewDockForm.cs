@@ -61,6 +61,105 @@ namespace NppPlugin.OmniView.Forms
                 var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder, options);
                 await _webView.EnsureCoreWebView2Async(env);
                 _webView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+
+                // 注册 WebResourceRequestedFilter 拦截所有 https://local.doc/* 本地资源请求，强制注入 CORS 响应头与 MIME 类型
+                _webView.CoreWebView2.AddWebResourceRequestedFilter("https://local.doc/*", CoreWebView2WebResourceContext.All);
+                _webView.CoreWebView2.WebResourceRequested += (s, args) =>
+                {
+                    try
+                    {
+                        string uri = args.Request.Uri;
+                        string prefix = "https://local.doc/";
+                        if (uri.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                        {
+                            string rel = uri.Substring(prefix.Length);
+                            int q = rel.IndexOf('?');
+                            if (q >= 0) rel = rel.Substring(0, q);
+                            int hash = rel.IndexOf('#');
+                            if (hash >= 0) rel = rel.Substring(0, hash);
+                            rel = Uri.UnescapeDataString(rel).Replace('/', Path.DirectorySeparatorChar);
+
+                            string targetFolder = _currentMappedDocFolder;
+                            if (string.IsNullOrEmpty(targetFolder) || !Directory.Exists(targetFolder))
+                            {
+                                string pluginDir = Path.GetDirectoryName(typeof(PreviewDockForm).Assembly.Location);
+                                targetFolder = Path.Combine(pluginDir, "samples");
+                            }
+
+                            string filePath = null;
+                            if (rel.StartsWith("__abs__" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                                rel.StartsWith("__abs__/", StringComparison.OrdinalIgnoreCase))
+                            {
+                                string absPart = rel.Substring(8);
+                                int slashIdx = absPart.IndexOfAny(new char[] { '/', Path.DirectorySeparatorChar });
+                                if (slashIdx > 0)
+                                {
+                                    string drive = absPart.Substring(0, slashIdx).TrimEnd(':');
+                                    string sub = absPart.Substring(slashIdx + 1);
+                                    filePath = drive + ":" + Path.DirectorySeparatorChar + sub.Replace('/', Path.DirectorySeparatorChar);
+                                }
+                            }
+                            else
+                            {
+                                filePath = Path.Combine(targetFolder, rel);
+                                if (!File.Exists(filePath))
+                                {
+                                    try
+                                    {
+                                        var parentDir = Directory.GetParent(targetFolder);
+                                        if (parentDir != null && parentDir.Exists)
+                                        {
+                                            string pPath = Path.Combine(parentDir.FullName, rel);
+                                            if (File.Exists(pPath)) filePath = pPath;
+                                        }
+                                    }
+                                    catch { }
+                                }
+                                if (!File.Exists(filePath))
+                                {
+                                    try
+                                    {
+                                        string pluginDir = Path.GetDirectoryName(typeof(PreviewDockForm).Assembly.Location);
+                                        string fallback = Path.Combine(pluginDir, "samples", rel);
+                                        if (File.Exists(fallback)) filePath = fallback;
+                                    }
+                                    catch { }
+                                }
+                            }
+
+                            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+                            {
+                                string ext = Path.GetExtension(filePath).ToLowerInvariant();
+                                string mime = "application/octet-stream";
+                                switch (ext)
+                                {
+                                    case ".svg": mime = "image/svg+xml"; break;
+                                    case ".png": mime = "image/png"; break;
+                                    case ".jpg":
+                                    case ".jpeg": mime = "image/jpeg"; break;
+                                    case ".gif": mime = "image/gif"; break;
+                                    case ".webp": mime = "image/webp"; break;
+                                    case ".bmp": mime = "image/bmp"; break;
+                                    case ".ico": mime = "image/x-icon"; break;
+                                    case ".css": mime = "text/css"; break;
+                                    case ".js": mime = "text/javascript"; break;
+                                    case ".json": mime = "application/json"; break;
+                                    case ".xml": mime = "application/xml"; break;
+                                }
+
+                                var fs = File.OpenRead(filePath);
+                                args.Response = _webView.CoreWebView2.Environment.CreateWebResourceResponse(
+                                    fs,
+                                    200,
+                                    "OK",
+                                    "Content-Type: " + mime + "\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Methods: GET, OPTIONS\r\nCache-Control: no-cache\r\n"
+                                );
+                            }
+                        }
+                    }
+                    catch { }
+                };
+
                 _webView.CoreWebView2.NavigationStarting += (s, e) =>
                 {
                     if (string.IsNullOrEmpty(e.Uri)) return;
@@ -103,22 +202,33 @@ namespace NppPlugin.OmniView.Forms
                 badgeText += " (大文件预览模式)";
             }
 
-            string baseHref = "";
-            if (doc.IsSavedOnDisk)
+            string docFolder = "";
+            if (doc.IsSavedOnDisk && !string.IsNullOrWhiteSpace(doc.FullPath))
             {
-                string docFolder = Path.GetDirectoryName(doc.FullPath);
-                if (!string.IsNullOrEmpty(docFolder) && Directory.Exists(docFolder))
+                try { docFolder = Path.GetDirectoryName(doc.FullPath); } catch { }
+            }
+            if (string.IsNullOrEmpty(docFolder) || !Directory.Exists(docFolder))
+            {
+                try
                 {
-                    if (!string.Equals(_currentMappedDocFolder, docFolder, StringComparison.OrdinalIgnoreCase))
+                    string pluginDir = Path.GetDirectoryName(typeof(PreviewDockForm).Assembly.Location);
+                    string sampleDir = Path.Combine(pluginDir, "samples");
+                    if (Directory.Exists(sampleDir)) docFolder = sampleDir;
+                }
+                catch { }
+            }
+
+            string baseHref = "https://local.doc/";
+            if (!string.IsNullOrEmpty(docFolder) && Directory.Exists(docFolder))
+            {
+                if (!string.Equals(_currentMappedDocFolder, docFolder, StringComparison.OrdinalIgnoreCase))
+                {
+                    try
                     {
-                        try
-                        {
-                            _webView.CoreWebView2.SetVirtualHostNameToFolderMapping("local.doc", docFolder, CoreWebView2HostResourceAccessKind.Allow);
-                            _currentMappedDocFolder = docFolder;
-                        }
-                        catch { }
+                        _webView.CoreWebView2.SetVirtualHostNameToFolderMapping("local.doc", docFolder, CoreWebView2HostResourceAccessKind.Allow);
                     }
-                    baseHref = "https://local.doc/";
+                    catch { }
+                    _currentMappedDocFolder = docFolder;
                 }
             }
 
@@ -132,7 +242,8 @@ namespace NppPlugin.OmniView.Forms
                     string script = "if(window.updateMarkdownContent) window.updateMarkdownContent(" +
                                     Serializer.Serialize(innerHtml) + ", " +
                                     Serializer.Serialize(badgeText) + ", " +
-                                    Serializer.Serialize(doc.Content ?? "") + "); if(window.finishRecognition) window.finishRecognition(" + Serializer.Serialize(badgeText) + "); else if(window.finishLoader) window.finishLoader();";
+                                    Serializer.Serialize(doc.Content ?? "") + ", " +
+                                    Serializer.Serialize(baseHref) + "); if(window.finishRecognition) window.finishRecognition(" + Serializer.Serialize(badgeText) + "); else if(window.finishLoader) window.finishLoader();";
                     _webView.CoreWebView2.ExecuteScriptAsync(script);
                     return;
                 }

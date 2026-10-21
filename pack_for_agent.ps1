@@ -69,6 +69,14 @@ if (Test-Path $assetsDir) {
     }
 }
 
+# Copy sample suite and test assets
+$sampleDir = Join-Path $root "tests\samples"
+if (Test-Path $sampleDir) {
+    $targetSamples = Join-Path $distDir "samples"
+    if (-not (Test-Path $targetSamples)) { New-Item -ItemType Directory -Path $targetSamples -Force | Out-Null }
+    Copy-Item (Join-Path $sampleDir "*") -Destination $targetSamples -Recurse -Force
+}
+
 Write-Host "`n==========================================================" -ForegroundColor Green
 Write-Host "  NppOmniView Build & Packaging Complete!" -ForegroundColor Green
 Write-Host "  Distribution Folder: $distDir" -ForegroundColor Green

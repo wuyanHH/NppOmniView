@@ -1132,7 +1132,7 @@ Assert-Equal $codeFenceProtected $true "ConvertMarkdownToHtml protects code fenc
 # Test Math-6: 前端页面包含 window.renderMathBlocks 全局渲染器与 KaTeX onload 钩子
 $fullMdHtml = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::BuildOmniViewHtml($docMd, $detMd, "", $false)
 $hasMathBlocksJs = $fullMdHtml.Contains("window.renderMathBlocks = function()") -and `
-                   $fullMdHtml.Contains("onload='if (window.renderMathBlocks) renderMathBlocks();'") -and `
+                   $fullMdHtml.Contains("onload='if (window.renderMathBlocks) renderMathBlocks(); enhanceMarkdownImages();'") -and `
                    $fullMdHtml.Contains("language-math")
 Assert-Equal $hasMathBlocksJs $true "BuildOmniViewHtml provides window.renderMathBlocks and KaTeX onload hook"
 
@@ -1286,6 +1286,137 @@ Assert-Equal $isIniRich $true "IsRichViewDocument evaluates INI as rich format"
 $htmlTxt = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::BuildOmniViewHtml($txtDoc, $txtDet, "", $false)
 $hasNoOldBigCard = (-not $htmlTxt.Contains("免渲染休眠")) -and $htmlTxt.Contains("纯文本静默模式")
 Assert-Equal $hasNoOldBigCard $true "Clean text view strictly eliminates verbose legacy dormant card in favor of minimal banner"
+
+# Test Code Block Toolbar: 垂直居中样式与尺寸对齐
+$htmlCode = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::BuildOmniViewHtml($mdDoc, $mdDet, "", $false)
+$hasCenteredHeaderCss = $htmlCode.Contains("height: 36px; min-height: 36px; max-height: 36px;") -and
+                        $htmlCode.Contains(".code-header-left {") -and
+                        $htmlCode.Contains(".code-header-right {")
+Assert-Equal $hasCenteredHeaderCss $true "Code block header includes pixel-perfect vertical centering and unified 36px height"
+
+# Test Code Block Soft Wrap: 自动换行按钮与 CSS 布局
+$hasSoftWrapFeature = $htmlCode.Contains("code-wrap-btn") -and
+                      $htmlCode.Contains("toggleCodeWrap") -and
+                      $htmlCode.Contains(".code-block-wrapper.is-wrapped .code-table") -and
+                      $htmlCode.Contains("table-layout: fixed !important;") -and
+                      $htmlCode.Contains("white-space: pre-wrap !important;")
+Assert-Equal $hasSoftWrapFeature $true "Code block integrates soft-wrap toggle button and table-layout: fixed wrap styles"
+
+# Test Code Block Wrap Colgroup & Gutter Width Protection
+$hasGutterColgroupGuard = $htmlCode.Contains("<colgroup><col style='width:") -and
+                          $htmlCode.Contains("--code-gutter-width") -and
+                          $htmlCode.Contains("min-width: var(--code-gutter-width") -and
+                          $htmlCode.Contains("max-width: var(--code-gutter-width") -and
+                          $htmlCode.Contains("display: block !important;")
+Assert-Equal $hasGutterColgroupGuard $true "Code block soft-wrap employs colgroup width locking and --code-gutter-width dynamic isolation completely preventing line-number collision"
+
+# Test Code Block Indent: 默认缩进切换与 JSON 智能美化
+$hasIndentAndFmtFeature = $htmlCode.Contains("code-indent-btn") -and
+                          $htmlCode.Contains("cycleCodeIndent") -and
+                          $htmlCode.Contains("--code-tab-size") -and
+                          $htmlCode.Contains("formatBlockCode")
+Assert-Equal $hasIndentAndFmtFeature $true "Code block integrates indent cycle button, tab-size support, and smart JSON beautifier"
+
+# Test Code Block Auto-Dedent: 自动去除代码块公共前导缩进
+$hasDedentFeature = $htmlCode.Contains("dedentCode") -and $htmlCode.Contains("commonPrefix")
+Assert-Equal $hasDedentFeature $true "Code block integrates automatic leading indent stripping (Dedent) without requiring manual beautify button"
+
+# Test SVG Data URI Normalization & Rendering
+$svgMdSample = "![OmniView 动态徽标](data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='36' viewBox='0 0 160 36'><rect width='160' height='36' rx='6' fill='%232563eb'/><text x='50%25' y='50%25'>★ OmniView 2.2 ★</text></svg>)"
+$svgHtmlRes = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::ConvertMarkdownToHtml($svgMdSample)
+$hasSvgImgTag = $svgHtmlRes.Contains('<img src="data:image/svg+xml;base64,') -and $svgHtmlRes.Contains('alt="OmniView 动态徽标"')
+Assert-Equal $hasSvgImgTag $true "ConvertMarkdownToHtml automatically normalizes inline SVG Data URI to standard Base64 img tag"
+
+# Test Code Block Indentation & Style Isolation
+$hasStrictCodeLineCss = $htmlCode.Contains("white-space: pre !important;") -and
+                        $htmlCode.Contains("display: inline-block !important;") -and
+                        $htmlCode.Contains("-webkit-tab-size: var(--code-tab-size, 4);")
+Assert-Equal $hasStrictCodeLineCss $true "Code block line styles enforce white-space: pre and display: inline-block preserving leading indentation"
+
+# Test Inline Code Pill Isolation
+$hasPillGuard = $htmlCode.Contains("codeEl.closest('.code-block-wrapper')") -and
+                $htmlCode.Contains("codeEl.closest('.code-table')")
+Assert-Equal $hasPillGuard $true "Inline code pill logic strictly isolates code blocks preventing flexbox collapse on code indentation"
+
+# Test External Link Indicator: 精致现代矢量遮罩图标与图片链接排除
+$hasModernExtLinkCss = $htmlCode.Contains(".md-body a[href^='http://']:not(:has(img))::after") -and
+                       $htmlCode.Contains("-webkit-mask: url('data:image/svg+xml,") -and
+                       $htmlCode.Contains("stroke-width=%272.6%27")
+Assert-Equal $hasModernExtLinkCss $true "External links feature modern refined SVG mask icon with strict image link exclusion"
+
+# Test Markdown Image Lightbox: 全功能全屏画廊灯箱 DOM 结构
+$hasLightboxDom = $htmlCode.Contains("id='omni-lightbox'") -and
+                  $htmlCode.Contains("class='lb-backdrop'") -and
+                  $htmlCode.Contains("id='lb-counter'") -and
+                  $htmlCode.Contains("id='lb-main-img'") -and
+                  $htmlCode.Contains("id='lb-nav-prev'") -and
+                  $htmlCode.Contains("id='lb-nav-next'")
+Assert-Equal $hasLightboxDom $true "HTML template integrates complete OmniGallery full-screen lightbox modal and stage DOM"
+
+# Test Markdown Image Lightbox: 缩放、平移、翻页与展开按钮控制器
+$hasLightboxJs = $htmlCode.Contains("openImageLightbox") -and
+                 $htmlCode.Contains("closeImageLightbox") -and
+                 $htmlCode.Contains("zoomLightboxImage") -and
+                 $htmlCode.Contains("stepLightboxImage") -and
+                 $htmlCode.Contains("resetLightboxZoom") -and
+                 $htmlCode.Contains("startLightboxDrag") -and
+                 $htmlCode.Contains("enhanceMarkdownImages")
+Assert-Equal $hasLightboxJs $true "JavaScript controllers provide full suite of image expansion, wheel zoom, drag pan, and gallery navigation"
+
+# Test Markdown Image Link Non-Interference: 有链接的图片不展开灯箱且鼠标呈现 pointer
+$hasLinkedImgProtection = $htmlCode.Contains("if (img.closest('a'))") -and
+                          $htmlCode.Contains(".md-body a img {") -and
+                          $htmlCode.Contains("cursor: pointer !important;")
+Assert-Equal $hasLinkedImgProtection $true "Linked images preserve native hyperlinking and pointer cursor without lightbox hijacking"
+
+# Test Direct Click Image Expansion with Zero Button Clutter
+$hasDirectClickCleanUi = (-not $htmlCode.Contains(".img-expand-trigger")) -and
+                         $htmlCode.Contains("cursor: zoom-in;") -and
+                         $htmlCode.Contains("openImageLightbox(img);")
+Assert-Equal $hasDirectClickCleanUi $true "Images feature direct-click expansion with zoom-in cursor and zero redundant floating button overlay"
+
+# Test Full Base64 & Inline Data URI Image Lightbox Support without Size Penalties
+$hasBase64FullSupport = (-not $htmlCode.Contains("isInlinePixel")) -and
+                        $htmlCode.Contains("openImageLightbox(img);") -and
+                        $htmlCode.Contains("target.src")
+Assert-Equal $hasBase64FullSupport $true "Base64 and inline Data URI images fully participate in lightbox gallery and direct-click expansion"
+
+# Test Sample Suite Local Asset References
+$sampleMdContent = [System.IO.File]::ReadAllText("tests\samples\sample.md", [System.Text.Encoding]::UTF8)
+$hasLocalAssets = $sampleMdContent.Contains("./assets/omniview_architecture.svg") -and
+                  $sampleMdContent.Contains("./assets/sample_badge.png") -and
+                  (Test-Path "tests\samples\assets\omniview_architecture.svg") -and
+                  (Test-Path "tests\samples\assets\sample_badge.png")
+Assert-Equal $hasLocalAssets $true "Sample suite contains real resolvable local SVG architecture topology and PNG badge assets"
+
+# Test Markdown Incremental Dynamic BaseHref Sync: 增量更新同步刷新 base 标签
+$hasBaseHrefSync = $htmlCode.Contains("updateMarkdownContent = function(newHtml, statusText, rawDoc, newBaseHref)") -and
+                   $htmlCode.Contains("baseEl.href = newBaseHref;")
+Assert-Equal $hasBaseHrefSync $true "Incremental DOM update synchronizes baseHref ensuring zero-flicker dynamic local asset resolution"
+
+# Test Local Absolute Physical Path Normalization
+$rawAbsTestMd = '<img src="C:\test\photo.png" alt="abs" /><img src="file:///D:/images/logo.svg" alt="file_abs" />'
+$normalizedAbsHtml = [NppPlugin.OmniView.Core.HtmlTemplateBuilder]::NormalizeLocalAbsolutePaths($rawAbsTestMd)
+$hasNormalizedAbs = $normalizedAbsHtml.Contains("https://local.doc/__abs__/C/test/photo.png") -and
+                    $normalizedAbsHtml.Contains("https://local.doc/__abs__/D/images/logo.svg")
+Assert-Equal $hasNormalizedAbs $true "Local absolute physical path is safely normalized to sandboxed local virtual proxy"
+
+# Test High-Resolution Local Badge Asset Quality
+$badgeItem = Get-Item 'tests/samples/assets/sample_badge.png'
+$isHighResBadge = ($badgeItem.Length -gt 5000)
+Assert-Equal $isHighResBadge $true "Sample suite local badge asset is a crisp high-resolution PNG verified bitmap"
+
+# Test Notepad++ Menu & Toolbar Tooltip Hotkey Annotations
+$funcCount = 0
+$ptrItems = [NppPlugin.OmniView.Main]::getFuncsArray([ref]$funcCount)
+$item0 = [System.Runtime.InteropServices.Marshal]::PtrToStructure($ptrItems, [type][NppPlugin.OmniView.Core.FuncItem])
+$itemSize = [System.Runtime.InteropServices.Marshal]::SizeOf([type][NppPlugin.OmniView.Core.FuncItem])
+$item1Ptr = New-Object IntPtr ($ptrItems.ToInt64() + $itemSize)
+$item1 = [System.Runtime.InteropServices.Marshal]::PtrToStructure($item1Ptr, [type][NppPlugin.OmniView.Core.FuncItem])
+$hasToggleHotkey = $item0._itemName.Contains("(Ctrl+Alt+P)")
+$hasFormatHotkey = $item1._itemName.Contains("(Ctrl+Alt+F)")
+Assert-Equal $hasToggleHotkey $true "Main toolbar and menu command 0 itemName displays explicit hotkey (Ctrl+Alt+P)"
+Assert-Equal $hasFormatHotkey $true "Menu command 1 itemName displays explicit hotkey (Ctrl+Alt+F)"
 
 
 $resultColor = if ($testsFailed -eq 0) { "Green" } else { "Red" }
